@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Main" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="main.Main" />
+    <option name="VM_PARAMETERS" value="--add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/java.awt=ALL-UNNAMED --add-exports java.desktop/sun.awt=ALL-UNNAMED" />
+    <module name="3DAWESOME" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

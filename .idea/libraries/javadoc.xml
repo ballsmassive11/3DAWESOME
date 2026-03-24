@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="javadoc">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/lib/ext/gluegen/javadoc" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+    <jarDirectory url="file://$PROJECT_DIR$/lib/ext/gluegen/javadoc" recursive="false" />
+  </library>
+</component>
