@@ -6,11 +6,12 @@ import com.sun.j3d.utils.universe.SimpleUniverse;
 import com.sun.j3d.utils.universe.ViewingPlatform;
 
 import java.awt.*;
+import java.awt.event.*;
 
 /**
  * Renderer class for displaying 3D scenes using Java3D
  */
-public class Renderer {
+public class Game3DRenderer {
     private Canvas3D canvas;
     private SimpleUniverse universe;
     private World world;
@@ -21,7 +22,7 @@ public class Renderer {
      * Create a renderer for the given world
      * @param world The world to render
      */
-    public Renderer(World world) {
+    public Game3DRenderer(World world) {
         this.world = world;
         initializeRenderer();
     }
@@ -34,6 +35,15 @@ public class Renderer {
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
         canvas = new Canvas3D(config);
         canvas.setSize(800, 600);
+        canvas.setFocusable(true);
+        canvas.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    System.exit(0);
+                }
+            }
+        });
 
         // Create the universe
         universe = new SimpleUniverse(canvas);

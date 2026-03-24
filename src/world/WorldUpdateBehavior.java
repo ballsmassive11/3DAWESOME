@@ -1,12 +1,15 @@
 package world;
 
-import javax.media.j3d.*;
+import javax.media.j3d.Behavior;
+import javax.media.j3d.BoundingSphere;
+import javax.media.j3d.WakeupOnElapsedFrames;
 import javax.vecmath.Point3d;
 import java.util.Enumeration;
 
 /**
  * Java3D Behavior that fires every frame and drives World.update(deltaTime).
  */
+@SuppressWarnings("rawtypes")
 public class WorldUpdateBehavior extends Behavior {
     private final World world;
     private final WakeupOnElapsedFrames wakeup = new WakeupOnElapsedFrames(0);
@@ -24,7 +27,7 @@ public class WorldUpdateBehavior extends Behavior {
     }
 
     @Override
-    public void processStimulus(Enumeration<WakeupCriterion> criteria) {
+    public void processStimulus(Enumeration criteria) {
         long now = System.currentTimeMillis();
         double deltaTime = (now - lastTime) / 1000.0;
         lastTime = now;
