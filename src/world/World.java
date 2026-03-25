@@ -10,8 +10,7 @@ public class World {
     private List<BaseObject> objects;
     private BranchGroup sceneBranchGroup;
     private Color3f backgroundColor;
-    private AmbientLight ambientLight;
-    private DirectionalLight directionalLight;
+    private Lighting lighting;
     private Camera camera;
 
     public World() {
@@ -21,25 +20,10 @@ public class World {
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_WRITE);
         this.backgroundColor = new Color3f(0.2f, 0.2f, 0.3f);
         this.camera = new Camera();
-
-        setupLighting();
+        this.lighting = new Lighting();
     }
 
-    /**
-     * Setup default lighting for the scene
-     */
-    private void setupLighting() {
-        // Ambient light
-        ambientLight = new AmbientLight(new Color3f(0.3f, 0.3f, 0.3f));
-        ambientLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), 100.0));
-
-        // Directional light
-        directionalLight = new DirectionalLight(
-            new Color3f(1.0f, 1.0f, 1.0f),
-            new Vector3f(-1.0f, -1.0f, -1.0f)
-        );
-        directionalLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), 100.0));
-    }
+    public Lighting getLighting() {return lighting;}
 
     /**
      * Add an object to the world
@@ -52,9 +36,7 @@ public class World {
     /**
      * Remove an object from the world
      */
-    public void removeObject(BaseObject object) {
-        objects.remove(object);
-    }
+    public void removeObject(BaseObject object) {objects.remove(object);}
 
     /**
      * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
@@ -66,9 +48,7 @@ public class World {
         }
     }
 
-    public Camera getCamera() {
-        return camera;
-    }
+    public Camera getCamera() {return camera;}
 
     /**
      * Get the scene graph for rendering
@@ -76,8 +56,7 @@ public class World {
     public BranchGroup getSceneBranchGroup() {
         // Add lights if not already added
         if (sceneBranchGroup.numChildren() == objects.size()) {
-            sceneBranchGroup.addChild(ambientLight);
-            sceneBranchGroup.addChild(directionalLight);
+            lighting.addToScene(sceneBranchGroup);
         }
         return sceneBranchGroup;
     }

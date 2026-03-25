@@ -1,7 +1,9 @@
 package main;
 
 import world.*;
+import renderer.*;
 import objects.OscillatingCube;
+import objects.ModelObject;
 import javax.vecmath.Color3f;
 import javax.swing.*;
 import java.awt.*;
@@ -16,17 +18,17 @@ public class Main {
         World world = new World();
 
         OscillatingCube cube = new OscillatingCube(1.0f);
-        cube.setPosition(0.0f, 0.0f, -5.0f);
+        cube.setPosition(2.0f, 0.0f, -5.0f);
         cube.setColor(new Color3f(0.2f, 0.6f, 1.0f));
         world.addObject(cube);
         
-        // Add some more cubes to fly around and see
-        for (int i = 0; i < 5; i++) {
-            OscillatingCube extra = new OscillatingCube(0.5f);
-            extra.setPosition(Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 15);
-            extra.setColor(new Color3f((float)Math.random(), (float)Math.random(), (float)Math.random()));
-            world.addObject(extra);
-        }
+        // Add the model object
+        ModelObject suzanne = new ModelObject("src/resources/suzanne.obj");
+        suzanne.setPosition(0.0f, 0.0f, -5.0f);
+        suzanne.setScale(1.5f);
+        suzanne.setColor(new Color3f(0.8f, 0.4f, 0.1f));
+        suzanne.setAngularVelocity(0, 1.0, 0); // Rotate the monkey head
+        world.addObject(suzanne);
 
         System.out.println("creating the renderer object");
         Game3DRenderer renderer = new Game3DRenderer(world);

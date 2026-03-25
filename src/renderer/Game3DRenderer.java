@@ -1,4 +1,6 @@
-package world;
+package renderer;
+
+import world.*;
 
 import javax.media.j3d.*;
 import javax.vecmath.*;

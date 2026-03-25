@@ -1,4 +1,6 @@
-package world;
+package renderer;
+
+import world.World;
 
 import javax.media.j3d.Behavior;
 import javax.media.j3d.BoundingSphere;
