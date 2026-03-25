@@ -1,7 +1,7 @@
 package main;
 
 import world.*;
-import objects.Cube;
+import objects.OscillatingCube;
 import javax.vecmath.Color3f;
 import javax.swing.*;
 import java.awt.*;
@@ -13,12 +13,20 @@ public class Main {
         GraphicsDevice device = env.getDefaultScreenDevice();
 
         System.out.println("creating the world object");
-        World world = new World(5);
+        World world = new World();
 
-        Cube cube = new Cube(1.0f);
+        OscillatingCube cube = new OscillatingCube(1.0f);
+        cube.setPosition(0.0f, 0.0f, -5.0f);
         cube.setColor(new Color3f(0.2f, 0.6f, 1.0f));
-        cube.setAngularVelocity(0.3, 0.8, 0.2); // radians/sec around X, Y, Z
         world.addObject(cube);
+        
+        // Add some more cubes to fly around and see
+        for (int i = 0; i < 5; i++) {
+            OscillatingCube extra = new OscillatingCube(0.5f);
+            extra.setPosition(Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 15);
+            extra.setColor(new Color3f((float)Math.random(), (float)Math.random(), (float)Math.random()));
+            world.addObject(extra);
+        }
 
         System.out.println("creating the renderer object");
         Game3DRenderer renderer = new Game3DRenderer(world);

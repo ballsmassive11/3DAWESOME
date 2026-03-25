@@ -7,20 +7,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class World {
-    private int focalDist;
     private List<BaseObject> objects;
     private BranchGroup sceneBranchGroup;
     private Color3f backgroundColor;
     private AmbientLight ambientLight;
     private DirectionalLight directionalLight;
+    private Camera camera;
 
-    public World(int focalDist) {
-        this.focalDist = focalDist;
+    public World() {
         this.objects = new ArrayList<>();
         this.sceneBranchGroup = new BranchGroup();
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_EXTEND);
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_WRITE);
-        this.backgroundColor = new Color3f(0.1f, 0.1f, 0.2f);
+        this.backgroundColor = new Color3f(0.2f, 0.2f, 0.3f);
+        this.camera = new Camera();
 
         setupLighting();
     }
@@ -57,33 +57,29 @@ public class World {
     }
 
     /**
-     * Advance all objects by deltaTime seconds. Called each frame by WorldUpdateBehavior.
+     * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
      */
     public void update(double deltaTime) {
+        camera.update(deltaTime);
         for (BaseObject obj : objects) {
             obj.update(deltaTime);
         }
+    }
+
+    public Camera getCamera() {
+        return camera;
     }
 
     /**
      * Get the scene graph for rendering
      */
     public BranchGroup getSceneBranchGroup() {
-        // Add lights and update behavior if not already added
+        // Add lights if not already added
         if (sceneBranchGroup.numChildren() == objects.size()) {
             sceneBranchGroup.addChild(ambientLight);
             sceneBranchGroup.addChild(directionalLight);
-            sceneBranchGroup.addChild(new WorldUpdateBehavior(this));
         }
         return sceneBranchGroup;
-    }
-
-    public int getFocalDist() {
-        return focalDist;
-    }
-
-    public void setFocalDist(int focalDist) {
-        this.focalDist = focalDist;
     }
 
     public Color3f getBackgroundColor() {

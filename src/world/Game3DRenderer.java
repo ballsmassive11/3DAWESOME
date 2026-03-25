@@ -42,6 +42,12 @@ public class Game3DRenderer {
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     System.exit(0);
                 }
+                world.getCamera().keyPressed(e.getKeyCode());
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                world.getCamera().keyReleased(e.getKeyCode());
             }
         });
 
@@ -53,11 +59,32 @@ public class Game3DRenderer {
         viewTransformGroup = viewingPlatform.getViewPlatformTransform();
 
         // Set default camera position
-        setCamera(new Vector3d(0.0, 0.0, world.getFocalDist()), 
-                  new Point3d(0.0, 0.0, 0.0));
+        syncCamera();
 
         // Setup the scene
         setupScene();
+    }
+
+    /**
+     * Sync the Java3D view transform with the Camera object's position and orientation
+     */
+    public void syncCamera() {
+        Camera cam = world.getCamera();
+        Transform3D transform = new Transform3D();
+        Transform3D rotation = new Transform3D();
+        
+        // Apply pitch (around X) then yaw (around Y)
+        transform.rotX(cam.getPitch());
+        rotation.rotY(cam.getYaw());
+        transform.mul(rotation, transform);
+        
+        // Apply position
+        transform.setTranslation(cam.getPosition());
+        
+        // Java3D ViewPlatform transform is inverse of camera transform
+        // But usually we set it directly as the "eye" transform.
+        // If we use lookAt, we invert it. If we use rot/trans, it IS the eye's transform.
+        viewTransformGroup.setTransform(transform);
     }
 
     /**
@@ -70,6 +97,10 @@ public class Game3DRenderer {
 
         BranchGroup sceneBG = world.getSceneBranchGroup();
         sceneBG.addChild(background);
+        
+        // Add world update behavior and pass renderer for camera sync
+        WorldUpdateBehavior behavior = new WorldUpdateBehavior(world, this);
+        sceneBG.addChild(behavior);
 
         // Compile for optimization
         sceneBG.compile();
@@ -84,10 +115,9 @@ public class Game3DRenderer {
      * @param lookAt Point the camera looks at
      */
     public void setCamera(Vector3d cameraPos, Point3d lookAt) {
-        Transform3D transform = new Transform3D();
-        transform.lookAt(new Point3d(cameraPos), lookAt, new Vector3d(0, 1, 0));
-        transform.invert();
-        viewTransformGroup.setTransform(transform);
+        world.getCamera().setPosition(cameraPos.x, cameraPos.y, cameraPos.z);
+        // We don't have an easy way to set lookAt in Camera yet, but we can at least set position
+        syncCamera();
     }
 
     /**
