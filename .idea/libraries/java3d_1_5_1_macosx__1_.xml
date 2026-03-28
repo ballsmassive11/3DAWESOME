@@ -3,7 +3,9 @@
     <CLASSES>
       <root url="jar://$USER_HOME$/Downloads/java3d-1_5_1-macosx (1).zip!/" />
     </CLASSES>
-    <JAVADOC />
+    <JAVADOC>
+      <root url="https://github.com/Articdive/JNoise.git" />
+    </JAVADOC>
     <SOURCES />
   </library>
 </component>
