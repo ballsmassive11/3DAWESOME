@@ -19,6 +19,7 @@ public class Game3DRenderer {
     private World world;
     private ViewingPlatform viewingPlatform;
     private TransformGroup viewTransformGroup;
+    private double fov = Math.PI / 3.0; // 60 degrees default
 
     /**
      * Create a renderer for the given world
@@ -55,6 +56,7 @@ public class Game3DRenderer {
 
         // Create the universe
         universe = new SimpleUniverse(canvas);
+        universe.getViewer().getView().setFieldOfView(fov);
 
         // Setup the viewing platform
         viewingPlatform = universe.getViewingPlatform();
@@ -134,6 +136,15 @@ public class Game3DRenderer {
      */
     public SimpleUniverse getUniverse() {
         return universe;
+    }
+
+    public double getFov() {
+        return fov;
+    }
+
+    public void setFov(double fovRadians) {
+        this.fov = fovRadians;
+        universe.getViewer().getView().setFieldOfView(fovRadians);
     }
 
     /**
