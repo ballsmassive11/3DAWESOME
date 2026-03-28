@@ -199,6 +199,15 @@ public abstract class BaseObject {
         material.setDiffuseColor(color);
     }
 
+    public void setShininess(float shininess) {
+        Material material = appearance.getMaterial();
+        if (material == null) {
+            material = new Material();
+            appearance.setMaterial(material);
+        }
+        material.setShininess(shininess);
+    }
+
     public void setAppearance(Appearance app) {
         this.appearance = app;
     }
