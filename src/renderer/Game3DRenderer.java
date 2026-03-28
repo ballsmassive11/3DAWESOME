@@ -14,7 +14,7 @@ import java.awt.event.*;
  * Renderer class for displaying 3D scenes using Java3D
  */
 public class Game3DRenderer {
-    private Canvas3D canvas;
+    private HudCanvas canvas;
     private SimpleUniverse universe;
     private World world;
     private ViewingPlatform viewingPlatform;
@@ -36,7 +36,7 @@ public class Game3DRenderer {
     private void initializeRenderer() {
         // Create a canvas for 3D rendering
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
-        canvas = new Canvas3D(config);
+        canvas = new HudCanvas(config);
         canvas.setSize(800, 600);
         canvas.setFocusable(true);
         canvas.addKeyListener(new KeyAdapter() {
@@ -122,6 +122,10 @@ public class Game3DRenderer {
         world.getCamera().setPosition(cameraPos.x, cameraPos.y, cameraPos.z);
         // We don't have an easy way to set lookAt in Camera yet, but we can at least set position
         syncCamera();
+    }
+
+    public void updateHud(double fps, double x, double y, double z, double yaw, double pitch, int objects) {
+        canvas.updateStats(fps, x, y, z, yaw, pitch, objects);
     }
 
     /**
