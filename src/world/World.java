@@ -18,7 +18,7 @@ public class World {
         this.sceneBranchGroup = new BranchGroup();
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_EXTEND);
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_WRITE);
-        this.backgroundColor = new Color3f(0.2f, 0.2f, 0.3f);
+        this.backgroundColor = new Color3f(0.8f, 0.8f, 0.9f);
         this.camera = new Camera();
         this.lighting = new Lighting();
     }
