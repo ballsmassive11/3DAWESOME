@@ -1,5 +1,6 @@
 package renderer;
 
+import world.Camera;
 import world.World;
 
 import javax.media.j3d.Behavior;
@@ -45,9 +46,15 @@ public class WorldUpdateBehavior extends Behavior {
         
         lastTime = now;
         world.update(deltaTime);
-        
+
         if (renderer != null) {
             renderer.syncCamera();
+            double fps = deltaTime > 0 ? 1.0 / deltaTime : 0;
+            Camera cam = world.getCamera();
+            renderer.updateHud(fps,
+                    cam.getPosition().x, cam.getPosition().y, cam.getPosition().z,
+                    cam.getYaw(), cam.getPitch(),
+                    world.getObjects().size());
         }
         
         wakeupOn(wakeup);
