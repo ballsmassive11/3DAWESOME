@@ -54,7 +54,8 @@ public class WorldUpdateBehavior extends Behavior {
             renderer.updateHud(fps,
                     cam.getPosition().x, cam.getPosition().y, cam.getPosition().z,
                     cam.getYaw(), cam.getPitch(),
-                    world.getObjects().size());
+                    world.getObjects().size(),
+                    world.getTotalPolygonCount());
         }
         
         wakeupOn(wakeup);

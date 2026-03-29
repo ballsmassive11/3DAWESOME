@@ -51,6 +51,7 @@ public class ModelObject extends BaseObject {
             String loadPath = preprocessObj(modelPath);
             Scene scene = loader.load(loadPath);
             modelRoot = scene.getSceneGroup();
+            polygonCount = countPolygons(modelRoot);
             
             if (!useModelMaterials) {
                 // Allow modification of appearance for all shapes in the model
@@ -83,7 +84,7 @@ public class ModelObject extends BaseObject {
         }
         if (!needsRewrite) return path;
 
-        File tmp = File.createTempFile("model_", ".obj");
+        File tmp = File.createTempFile("model_", ".obj", src.getParentFile());
         tmp.deleteOnExit();
         try (BufferedWriter w = new BufferedWriter(new FileWriter(tmp))) {
             for (String line : Files.readAllLines(src.toPath())) {

@@ -1,15 +1,17 @@
 # 3DAWESOME
 
-A Java3D-based 3D world renderer with procedural terrain, model loading, and a first-person camera.
+A Java3D-based 3D world renderer with procedurally generated organic terrain, animated water, OBJ model loading, and a first-person camera.
 
 ## Features
 
-- **Procedural terrain** generated with OpenSimplex2 noise (FastNoiseLite)
-- **OBJ model loading** with optional MTL texture support
-- **First-person camera** with WASD + arrow key controls
-- **HUD overlay** displaying real-time camera position, orientation, and FPS
-- **Lighting** with ambient and directional lights
-- **Fullscreen** rendering via Java3D Canvas3D
+- **Organic procedural terrain** — OpenSimplex2 FBm noise with domain warping for twisty, natural-looking landmasses
+- **Animated water** — transparent water plane with sinusoidal bobbing; seabed sand slopes down from the shoreline
+- **Height-based terrain coloring** — sand → grass → forest green → rocky gray → snow peaks
+- **OBJ model loading** — supports MTL materials and PBR texture maps (diffuse, metallic, roughness, normal, AO)
+- **First-person flying camera** — WASD movement, arrow key rotation, quaternion-based (no gimbal lock)
+- **HUD overlay** — real-time FPS, camera position/orientation, scene object count, and total triangle count
+- **Ambient + directional lighting**
+- **Fullscreen rendering** via Java3D Canvas3D
 
 ## Controls
 
@@ -19,47 +21,67 @@ A Java3D-based 3D world renderer with procedural terrain, model loading, and a f
 | `A` / `D` | Strafe left / right |
 | `Space` | Move up |
 | `Shift` | Move down |
-| `←` / `→` | Rotate (yaw) left / right |
-| `↑` / `↓` | Look up / down |
+| `←` / `→` | Yaw left / right |
+| `↑` / `↓` | Pitch up / down |
 | `Esc` | Quit |
 
-## HUD Stats (top-right)
+## HUD Stats
 
-- **FPS** — frames per second
-- **X / Y / Z** — camera world position
-- **Yaw / Pitch** — camera orientation in degrees
-- **Objs** — number of objects in the scene
+Displayed in the top-right corner each frame:
+
+| Stat | Description |
+|------|-------------|
+| FPS | Frames per second |
+| X / Y / Z | Camera world position |
+| Yaw / Pitch | Camera orientation (degrees) |
+| Objs | Total objects in the scene |
+| Tris | Total polygon (triangle) count |
 
 ## Project Structure
 
 ```
 src/
-├── main/Main.java              — entry point, sets up world and JFrame
+├── main/
+│   └── Main.java                   — entry point; builds world, loads models, creates JFrame
 ├── renderer/
-│   ├── Game3DRenderer.java     — Java3D rendering pipeline
-│   ├── HudPanel.java           — transparent Swing overlay for stats
-│   └── WorldUpdateBehavior.java— per-frame update behavior
+│   ├── Game3DRenderer.java         — Java3D universe, ViewingPlatform, keyboard input
+│   ├── HudCanvas.java              — Canvas3D subclass; draws HUD via postRender()
+│   ├── HudPanel.java               — alternative Swing HUD overlay (unused)
+│   └── WorldUpdateBehavior.java    — per-frame Behavior; drives world.update() and HUD sync
 ├── world/
-│   ├── World.java              — scene graph container
-│   ├── Camera.java             — flying camera with key input
-│   ├── Lighting.java           — ambient + directional lights
-│   ├── MapGenerator.java       — procedural terrain generation
-│   └── FastNoiseLite.java      — noise library
-└── objects/
-    ├── BaseObject.java         — base class for scene objects
-    ├── Brick.java              — box primitive
-    ├── ModelObject.java        — OBJ/MTL model loader
-    └── ...
+│   ├── World.java                  — scene graph container; holds objects, camera, lighting, water
+│   ├── Camera.java                 — flying first-person camera with key-state input
+│   └── Lighting.java               — ambient + directional light setup
+├── terrain/
+│   ├── MapGenerator.java           — procedural terrain and water plane generation
+│   └── WaterHandler.java           — sinusoidal water surface animation
+├── objects/
+│   ├── BaseObject.java             — abstract base; position, quaternion rotation, velocity, polygon counting
+│   ├── Brick.java                  — non-uniform box primitive (used for terrain blocks)
+│   ├── Cube.java                   — uniform box primitive
+│   ├── OscillatingCube.java        — sine-wave animated cube (for testing)
+│   └── ModelObject.java            — OBJ/MTL loader with Blender compatibility preprocessing
+└── util/
+    └── FastNoiseLite.java          — embedded noise library (MIT, v1.1.1, Jordan Peck)
 ```
+
+## Terrain Generation
+
+The terrain uses two `FastNoiseLite` instances:
+
+1. **Warp noise** — displaces XY sample coordinates by up to ±28 units using `DomainWarpIndependent` (4 octaves). This is what produces the winding, organic coastlines.
+2. **Main noise** — OpenSimplex2 FBm (5 octaves, lacunarity 2.0) sampled at the warped coordinates to produce the actual height values.
+
+Blocks above the threshold rise from flat shore up through a `t²` height curve to mountain peaks. Blocks below the threshold form the sandy seabed, deepening with a `depth^1.5` curve away from the shoreline.
 
 ## Requirements
 
 - Java 8+
-- Java3D 1.5.1 (configured via Maven / project libraries)
+- Java3D 1.5.1 (configured via IntelliJ project libraries)
 
 ## Building
 
-Open in IntelliJ IDEA and run `main.Main`, or build with Maven:
+Open in IntelliJ IDEA and run `main.Main`, or with Maven:
 
 ```bash
 mvn compile exec:java -Dexec.mainClass=main.Main

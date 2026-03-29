@@ -1,6 +1,7 @@
 package main;
 
 import world.*;
+import terrain.MapGenerator;
 import renderer.*;
 import objects.ModelObject;
 import javax.vecmath.Color3f;
@@ -17,22 +18,30 @@ public class Main {
         System.out.println("creating the world object");
         World world = new World();
 
-        new MapGenerator().generate(world);
+        MapGenerator mapGen = new MapGenerator();
+        //mapGen.setGeneratorToNoise();
+        mapGen.generate(world);
 
         // Add the model object
         ModelObject suzanne = new ModelObject("src/resources/Suzanne/suzanne.obj");
-        suzanne.setPosition(0.0f, 0.0f, -5.0f);
-        suzanne.setScale(1.5f);
+        suzanne.setPosition(0.0f, 10.0f, -8.0f);
+        suzanne.setScale(3.5f);
         suzanne.setColor(new Color3f(0.8f, 0.4f, 0.1f));
         suzanne.setAngularVelocity(0, 1.0, 0); // Rotate the monkey head
         world.addObject(suzanne);
 
         // Add the Ruger model object with textures
         ModelObject ruger = new ModelObject("src/resources/Ruger/ruger.obj", true);
-        ruger.setPosition(-2.0f, 0.0f, -5.0f);
-        ruger.setScale(1.0f);
+        ruger.setPosition(-2.0f, 10.0f, 2.0f);
+        ruger.setScale(2.0f);
         ruger.setAngularVelocity(0, 0.5, 0); // Rotate the gun
         world.addObject(ruger);
+
+        ModelObject table2 = new ModelObject("src/resources/Table2/table2.obj", true);
+        table2.setPosition(-8.0f, 10.0f, -3.0f);
+        table2.setScale(2.0f);
+        table2.setAngularVelocity(0, 0.5, 0); // Rotate the gun
+        world.addObject(table2);
 
         System.out.println("creating the renderer object");
         Game3DRenderer renderer = new Game3DRenderer(world);

@@ -1,6 +1,7 @@
 package world;
 
 import objects.BaseObject;
+import terrain.WaterHandler;
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ public class World {
     private Color3f backgroundColor;
     private Lighting lighting;
     private Camera camera;
+    private WaterHandler waterHandler;
 
     public World() {
         this.objects = new ArrayList<>();
@@ -41,11 +43,14 @@ public class World {
     /**
      * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
      */
+    public void setWaterHandler(WaterHandler wh) { this.waterHandler = wh; }
+
     public void update(double deltaTime) {
         camera.update(deltaTime);
         for (BaseObject obj : objects) {
             obj.update(deltaTime);
         }
+        if (waterHandler != null) waterHandler.update(deltaTime);
     }
 
     public Camera getCamera() {return camera;}
@@ -71,5 +76,11 @@ public class World {
 
     public List<BaseObject> getObjects() {
         return new ArrayList<>(objects);
+    }
+
+    public int getTotalPolygonCount() {
+        int total = 0;
+        for (BaseObject obj : objects) total += obj.getPolygonCount();
+        return total;
     }
 }

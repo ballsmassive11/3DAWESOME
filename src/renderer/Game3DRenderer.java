@@ -124,8 +124,8 @@ public class Game3DRenderer {
         syncCamera();
     }
 
-    public void updateHud(double fps, double x, double y, double z, double yaw, double pitch, int objects) {
-        canvas.updateStats(fps, x, y, z, yaw, pitch, objects);
+    public void updateHud(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons) {
+        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons);
     }
 
     /**

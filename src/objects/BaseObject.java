@@ -3,6 +3,7 @@ package objects;
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.geometry.*;
+import java.util.Enumeration;
 
 /**
  * Abstract base class for all 3D objects in the scene.
@@ -16,6 +17,7 @@ public abstract class BaseObject {
     protected Vector3d scale;
     protected Appearance appearance;
     protected BranchGroup branchGroup;
+    protected int polygonCount = 0;
     private Vector3d velocity;
     private Vector3d angularVelocity;
 
@@ -36,6 +38,43 @@ public abstract class BaseObject {
         this.angularVelocity = new Vector3d(0.0, 0.0, 0.0);
 
         initializeAppearance();
+    }
+
+    public int getPolygonCount() {
+        return polygonCount;
+    }
+
+    protected static int countPolygons(Object node) {
+        int count = 0;
+        if (node instanceof Shape3D) {
+            Shape3D shape = (Shape3D) node;
+            for (int i = 0; i < shape.numGeometries(); i++) {
+                count += polygonsInGeometry(shape.getGeometry(i));
+            }
+        } else if (node instanceof Group) {
+            Enumeration<?> children = ((Group) node).getAllChildren();
+            while (children.hasMoreElements()) {
+                count += countPolygons(children.nextElement());
+            }
+        }
+        return count;
+    }
+
+    private static int polygonsInGeometry(Geometry geom) {
+        if (!(geom instanceof GeometryArray)) return 0;
+        GeometryArray ga = (GeometryArray) geom;
+        int v = (ga instanceof IndexedGeometryArray)
+                ? ((IndexedGeometryArray) ga).getIndexCount()
+                : ga.getVertexCount();
+        if (geom instanceof TriangleArray || geom instanceof IndexedTriangleArray) {
+            return v / 3;
+        } else if (geom instanceof QuadArray || geom instanceof IndexedQuadArray) {
+            return (v / 4) * 2;
+        } else if (geom instanceof TriangleStripArray || geom instanceof TriangleFanArray
+                || geom instanceof IndexedTriangleStripArray || geom instanceof IndexedTriangleFanArray) {
+            return Math.max(0, v - 2);
+        }
+        return 0;
     }
 
     /**
@@ -61,6 +100,7 @@ public abstract class BaseObject {
      */
     public BranchGroup getBranchGroup() {
         Shape3D shape = createGeometry();
+        polygonCount = countPolygons(shape);
         shape.setAppearance(appearance);
         transformGroup.addChild(shape);
         branchGroup.addChild(transformGroup);

@@ -11,12 +11,13 @@ public class HudPanel extends JPanel {
     private volatile double camX = 0, camY = 0, camZ = 0;
     private volatile double yawDeg = 0, pitchDeg = 0;
     private volatile int objectCount = 0;
+    private volatile int polygonCount = 0;
 
     public HudPanel() {
         setOpaque(false);
     }
 
-    public void update(double fps, double x, double y, double z, double yaw, double pitch, int objects) {
+    public void update(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons) {
         this.fps = fps;
         this.camX = x;
         this.camY = y;
@@ -24,6 +25,7 @@ public class HudPanel extends JPanel {
         this.yawDeg = Math.toDegrees(yaw);
         this.pitchDeg = Math.toDegrees(pitch);
         this.objectCount = objects;
+        this.polygonCount = polygons;
         repaint();
     }
 
@@ -42,6 +44,7 @@ public class HudPanel extends JPanel {
             String.format("Yaw:    %.1f\u00b0", yawDeg),
             String.format("Pitch:  %.1f\u00b0", pitchDeg),
             String.format("Objs:   %d", objectCount),
+            String.format("Tris:   %,d", polygonCount),
         };
 
         FontMetrics fm = g2.getFontMetrics();

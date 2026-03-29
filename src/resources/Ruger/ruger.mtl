@@ -10,7 +10,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd textures/Lower_Part_Base_color.png
+map_Kd Lower_Part_Base_color.png
 
 newmtl Upper_Part
 Ns 250.000000
@@ -21,4 +21,4 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd textures/g18_Upper_Part_BaseColor.png
+map_Kd g18_Upper_Part_BaseColor.png
