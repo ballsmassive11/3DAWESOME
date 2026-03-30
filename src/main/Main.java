@@ -47,9 +47,9 @@ public class Main {
 //        world.addObject(ruger);
 
         MeshObject rock = new MeshObject("src/resources/Rock/fuckassRock.obj", true);
-        rock.setPosition(-8.0f, 10.0f, 8.0f);
-        rock.setScale(2.0f);
-        rock.setAngularVelocity(10, 20.5, -12); // Rotate the gun
+        rock.setPosition(-8.0f, 30.0f, 8.0f);
+        rock.setScale(12.0f);
+        rock.setAngularVelocity(20, 35.5, -12); // Rotate the gun
         world.addObject(rock);
 
         System.out.println("creating the renderer object");

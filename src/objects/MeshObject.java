@@ -6,12 +6,26 @@ import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.io.*;
 import java.nio.file.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class MeshObject extends BaseObject {
+    private static final Map<String, BranchGroup> modelCache = new ConcurrentHashMap<>();
+
     private String modelPath;
     private BranchGroup modelRoot;
     private boolean useModelMaterials = false;
+
+    /**
+     * Pre-loads an OBJ file into the cache without creating a full MeshObject.
+     * Safe to call from a background thread.
+     */
+    public static void preload(String modelPath) {
+        if (!modelCache.containsKey(modelPath)) {
+            loadFromFile(modelPath);
+        }
+    }
 
     /**
      * Loads a mesh from an OBJ file at the specified path.
@@ -33,7 +47,7 @@ public class MeshObject extends BaseObject {
         loadModel();
     }
 
-    private void loadModel() {
+    private static BranchGroup loadFromFile(String modelPath) {
         Path tempFile = null;
         try {
             ObjectFile loader = new ObjectFile(ObjectFile.RESIZE);
@@ -42,20 +56,12 @@ public class MeshObject extends BaseObject {
                     .filter(line -> !line.startsWith("o ") && !line.equals("o"))
                     .map(line -> line.startsWith("usemtl ") ? "g " + line.substring(7) + "\n" + line : line)
                     .collect(Collectors.joining("\n", "", "\n"));
-            // Write to a temp file in the same directory so relative MTL paths resolve correctly
             tempFile = original.resolveSibling("_tmp_" + original.getFileName());
             Files.write(tempFile, filtered.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             Scene scene = loader.load(tempFile.toFile().toURI().toURL());
-            modelRoot = scene.getSceneGroup();
-            
-            // If not using model materials, we should apply our BaseObject's appearance.
-            // But Scene/ObjectFile might have nested Shape3D nodes with their own appearances.
-            if (!useModelMaterials) {
-                applyAppearanceToGroup(modelRoot, appearance);
-            }
-            
-            // Calculate polygons
-            polygonCount = countPolygons(modelRoot);
+            BranchGroup root = scene.getSceneGroup();
+            modelCache.put(modelPath, root);
+            return root;
         } catch (FileNotFoundException e) {
             System.err.println("Model file not found: " + modelPath);
         } catch (Exception e) {
@@ -66,6 +72,23 @@ public class MeshObject extends BaseObject {
                 try { Files.deleteIfExists(tempFile); } catch (IOException ignored) {}
             }
         }
+        return null;
+    }
+
+    private void loadModel() {
+        BranchGroup cached = modelCache.get(modelPath);
+        if (cached == null) {
+            cached = loadFromFile(modelPath);
+        }
+        if (cached == null) return;
+
+        modelRoot = (BranchGroup) cached.cloneTree();
+
+        if (!useModelMaterials) {
+            applyAppearanceToGroup(modelRoot, appearance);
+        }
+
+        polygonCount = countPolygons(modelRoot);
     }
 
     private void applyAppearanceToGroup(Group group, Appearance app) {

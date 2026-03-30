@@ -1,6 +1,8 @@
 package renderer;
 
 import objects.MeshObject;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import world.World;
 
 import javax.media.j3d.Canvas3D;
@@ -32,6 +34,7 @@ public class HudCanvas extends Canvas3D {
         super(config);
         this.world = world;
         scanResources();
+        preloadModels();
 
         addMouseMotionListener(new MouseMotionAdapter() {
             @Override
@@ -70,6 +73,19 @@ public class HudCanvas extends Canvas3D {
             boolean hasMtl = mtls != null && mtls.length > 0;
             spawnableObjects.add(new String[]{dir.getName(), obj.getPath(), hasMtl ? "true" : "false"});
         }
+    }
+
+    private void preloadModels() {
+        ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "model-preloader");
+            t.setDaemon(true);
+            return t;
+        });
+        for (String[] info : spawnableObjects) {
+            String path = info[1];
+            executor.submit(() -> MeshObject.preload(path));
+        }
+        executor.shutdown();
     }
 
     private int hitTest(int mx, int my) {
