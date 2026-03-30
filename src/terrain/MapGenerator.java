@@ -12,7 +12,7 @@ import javax.vecmath.Color3f;
 public class MapGenerator {
     private final FastNoiseLite noise;
     private final FastNoiseLite warpNoise;
-    private int gridSize = 80;
+    private int gridSize = 160;
     private float spacing = 1.0f;
     private float threshold = 0.05f;
     private float heightScale = 12.0f;
