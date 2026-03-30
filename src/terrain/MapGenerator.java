@@ -15,9 +15,9 @@ public class MapGenerator {
     private int gridSize = 80;
     private float spacing = 1.0f;
     private float threshold = 0.05f;
-    private float heightScale = 6.0f;
+    private float heightScale = 12.0f;
     private float zOffset = -10.0f;
-    private float blockWidth = 0.7f;
+    private float blockWidth = 0.8f;
 
     public MapGenerator() {
         // Domain warp: displaces sample coordinates to produce twisty, organic shapes
@@ -32,11 +32,11 @@ public class MapGenerator {
         // Main terrain: FBm layering for natural fractal detail
         noise = new FastNoiseLite();
         noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        noise.SetFrequency(0.048f);
+        noise.SetFrequency(0.038f);
         noise.SetFractalType(FastNoiseLite.FractalType.FBm);
         noise.SetFractalOctaves(5);
         noise.SetFractalLacunarity(2.0f);
-        noise.SetFractalGain(0.5f);
+        noise.SetFractalGain(0.4f);
     }
 
     public void generate(World world) {
@@ -56,7 +56,7 @@ public class MapGenerator {
                 if (noiseVal < threshold) {
                     // Below water level — sand slopes downward away from shore
                     float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
-                    height = -(float) Math.pow(depth, 1.5) * 3.0f;
+                    height = -(float) Math.pow(depth, 1.5) * 4.0f;
                     diffuse = lerp(new Color3f(0.75f, 0.68f, 0.42f), new Color3f(0.50f, 0.46f, 0.30f), depth);
                 } else {
                     // Normalize relative to threshold so t=0 is shore, t=1 is peak
