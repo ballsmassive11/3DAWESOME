@@ -55,7 +55,8 @@ public class WorldUpdateBehavior extends Behavior {
                     cam.getPosition().x, cam.getPosition().y, cam.getPosition().z,
                     cam.getYaw(), cam.getPitch(),
                     world.getObjects().size(),
-                    world.getTotalPolygonCount());
+                    world.getTotalPolygonCount(),
+                    world.getSeed());
         }
         
         wakeupOn(wakeup);
