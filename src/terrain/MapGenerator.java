@@ -15,7 +15,7 @@ public class MapGenerator {
     private int gridSize = 160;
     private float spacing = 1.0f;
     private float threshold = 0.05f;
-    private float heightScale = 12.0f;
+    private float heightScale = 16.0f;
     private float zOffset = -10.0f;
     private float blockWidth = 0.8f;
 
@@ -57,11 +57,11 @@ public class MapGenerator {
                     // Below water level — sand slopes downward away from shore
                     float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
                     height = -(float) Math.pow(depth, 1.5) * 4.0f;
-                    diffuse = lerp(new Color3f(0.75f, 0.68f, 0.42f), new Color3f(0.50f, 0.46f, 0.30f), depth);
+                    diffuse = lerp(new Color3f(0.75f, 0.68f, 0.42f), new Color3f(0.30f, 0.26f, 0.10f), depth);
                 } else {
                     // Normalize relative to threshold so t=0 is shore, t=1 is peak
                     float t = (noiseVal - threshold) / (1.0f - threshold);
-                    height = (float) Math.pow(t, 2.0) * heightScale;
+                    height = (float) Math.pow(t, 2.5) * heightScale;
                     diffuse = terrainColor(t);
                 }
 
@@ -107,7 +107,7 @@ public class MapGenerator {
         } else if (t < 0.50f) {
             return lerp(new Color3f(0.55f, 0.76f, 0.28f), new Color3f(0.18f, 0.50f, 0.12f), (t - 0.12f) / 0.38f);
         } else if (t < 0.78f) {
-            return lerp(new Color3f(0.18f, 0.50f, 0.12f), new Color3f(0.44f, 0.41f, 0.36f), (t - 0.50f) / 0.28f);
+            return lerp(new Color3f(0.18f, 0.50f, 0.12f), new Color3f(0.54f, 0.41f, 0.36f), (t - 0.50f) / 0.28f);
         } else {
             float blend = Math.min((t - 0.78f) / 0.22f, 1.0f);
             return lerp(new Color3f(0.44f, 0.41f, 0.36f), new Color3f(0.82f, 0.82f, 0.85f), blend);
