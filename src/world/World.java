@@ -14,6 +14,7 @@ public class World {
     private Lighting lighting;
     private Camera camera;
     private WaterHandler waterHandler;
+    private int seed = 0;
 
     public World() {
         this.objects = new ArrayList<>();
@@ -44,6 +45,8 @@ public class World {
      * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
      */
     public void setWaterHandler(WaterHandler wh) { this.waterHandler = wh; }
+    public int getSeed() { return seed; }
+    public void setSeed(int seed) { this.seed = seed; }
 
     public void update(double deltaTime) {
         camera.update(deltaTime);
