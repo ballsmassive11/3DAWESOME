@@ -60,11 +60,12 @@ src/
 │   └── Main.java                   — entry point; builds world, loads models, creates JFrame
 ├── renderer/
 │   ├── Game3DRenderer.java         — Java3D universe, ViewingPlatform, keyboard input, command handling
-│   ├── HudCanvas.java              — Canvas3D subclass; draws HUD and spawner via postRender()
-│   ├── CommandHud.java             — in-game text input bar; fires CommandEvents to listeners
-│   ├── CommandEvent.java           — event object wrapping submitted command text
-│   ├── HudPanel.java               — alternative Swing HUD overlay (unused)
 │   └── WorldUpdateBehavior.java    — per-frame Behavior; drives world.update() and HUD sync
+├── hud/
+│   ├── HudCanvas.java              — Canvas3D subclass; draws stats overlay and spawner via postRender()
+│   ├── HudPanel.java               — legacy Swing HUD overlay (unused)
+│   ├── CommandHud.java             — in-game text input bar with history panel; fires CommandEvents
+│   └── CommandEvent.java           — event object wrapping submitted command text
 ├── world/
 │   ├── World.java                  — scene graph container; holds objects, camera, lighting, water
 │   ├── Camera.java                 — flying first-person camera with key-state input
