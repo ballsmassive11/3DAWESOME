@@ -30,6 +30,8 @@ public class HudCanvas extends Canvas3D {
     private volatile int hoveredButton = -1;
     private Rectangle[] buttonRects = new Rectangle[0];
 
+    private final CommandHud commandHud = new CommandHud();
+
     public HudCanvas(GraphicsConfiguration config, World world) {
         super(config);
         this.world = world;
@@ -123,11 +125,14 @@ public class HudCanvas extends Canvas3D {
         this.seed = seed;
     }
 
+    public CommandHud getCommandHud() { return commandHud; }
+
     @Override
     public void postRender() {
         J3DGraphics2D g2d = getGraphics2D();
         drawHud(g2d);
         drawSpawner(g2d);
+        commandHud.draw(g2d, getWidth(), getHeight());
         g2d.flush(false);
     }
 
