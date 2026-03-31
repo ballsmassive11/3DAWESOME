@@ -20,7 +20,7 @@ public class Camera {
     private Set<Integer> activeKeys = new HashSet<>();
 
     public Camera() {
-        this.position = new Vector3d(0, 8, 5);
+        this.position = new Vector3d(0, 15, 5);
         this.yaw = 0;
         this.pitch = 0;
     }

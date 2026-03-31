@@ -30,6 +30,7 @@ public class CommandHud {
 
     private static final int MAX_HISTORY = 60;
     private static final int VISIBLE_LINES = 12;
+    private static final boolean CLOSE_BAR_ON_ENTER = true;
 
     // -----------------------------------------------------------------------
     // Log entry
@@ -133,7 +134,8 @@ public class CommandHud {
                 listener.accept(event);
             }
         }
-        active = false;
+        //active = false;
+        suppressNextKeyTyped = false;
         inputBuffer.setLength(0);
     }
 

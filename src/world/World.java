@@ -37,9 +37,23 @@ public class World {
     }
 
     /**
-     * Remove an object from the world
+     * Remove an object from the world and detach it from the scene graph.
      */
-    public void removeObject(BaseObject object) {objects.remove(object);}
+    public void removeObject(BaseObject object) {
+        object.detachFromScene();
+        objects.remove(object);
+    }
+
+    /**
+     * Remove all objects from the world and clear the water handler.
+     */
+    public void clearObjects() {
+        for (BaseObject obj : objects) {
+            obj.detachFromScene();
+        }
+        objects.clear();
+        waterHandler = null;
+    }
 
     /**
      * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
@@ -50,7 +64,7 @@ public class World {
 
     public void update(double deltaTime) {
         camera.update(deltaTime);
-        for (BaseObject obj : objects) {
+        for (BaseObject obj : new ArrayList<>(objects)) {
             obj.update(deltaTime);
         }
         if (waterHandler != null) waterHandler.update(deltaTime);

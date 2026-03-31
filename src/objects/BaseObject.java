@@ -98,6 +98,11 @@ public abstract class BaseObject {
     /**
      * Build and return the scene graph for this object.
      */
+    /** Detach this object's branch group from the live scene graph. */
+    public void detachFromScene() {
+        branchGroup.detach();
+    }
+
     public BranchGroup getBranchGroup() {
         Shape3D shape = createGeometry();
         polygonCount = countPolygons(shape);

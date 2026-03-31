@@ -15,7 +15,7 @@ public class MapGenerator {
     private int gridSize = 160;
     private float spacing = 1.0f;
     private float threshold = 0.05f;
-    private float heightScale = 16.0f;
+    private float heightScale = 16.0f; //
     private float zOffset = -10.0f;
     private float blockWidth = 0.8f;
 
@@ -65,7 +65,7 @@ public class MapGenerator {
                     diffuse = terrainColor(t);
                 }
 
-                Brick brick = new Brick(blockWidth, 10f, blockWidth);
+                Brick brick = new Brick(blockWidth, 20f, blockWidth);
                 brick.setPosition(nx, height, ny + zOffset);
 
                 Color3f ambient = new Color3f(diffuse.x * 0.4f, diffuse.y * 0.4f, diffuse.z * 0.4f);
@@ -83,8 +83,8 @@ public class MapGenerator {
             }
         }
 
-        Brick water = new Brick(gridSize, 20f, gridSize);
-        water.setPosition(0, -5.1f, zOffset);
+        Brick water = new Brick(gridSize, 40f, gridSize);
+        water.setPosition(0, -35.1f, zOffset);
 
         Appearance appearance = water.getAppearance();
         Material material = new Material();
@@ -97,7 +97,7 @@ public class MapGenerator {
         appearance.setTransparencyAttributes(new TransparencyAttributes(TransparencyAttributes.BLENDED, 0.5f));
 
         world.addObject(water);
-        world.setWaterHandler(new WaterHandler(water, -5.1));
+        world.setWaterHandler(new WaterHandler(water, -10.2));
     }
 
     /** Height-based color gradient: sand → grass → forest → rock → snow */
@@ -122,6 +122,7 @@ public class MapGenerator {
         );
     }
 
+    public void setBlockWidth(float blockWidth) { this.blockWidth = blockWidth; }
     public void setSeed(int seed) {
         noise.SetSeed(seed);
         warpNoise.SetSeed(seed);
