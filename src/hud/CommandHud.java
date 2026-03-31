@@ -1,4 +1,4 @@
-package renderer;
+package hud;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -175,7 +175,6 @@ public class CommandHud {
             FontMetrics hfm = g2.getFontMetrics();
             int lineH = hfm.getHeight();
 
-            // Take the last VISIBLE_LINES entries
             int start = Math.max(0, history.size() - VISIBLE_LINES);
             List<LogEntry> visible = history.subList(start, history.size());
 

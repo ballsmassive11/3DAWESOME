@@ -1,10 +1,11 @@
-package renderer;
+package hud;
 
 import javax.swing.*;
 import java.awt.*;
 
 /**
  * Transparent overlay panel that renders camera and performance stats in the top-right corner.
+ * (Legacy Swing-based HUD — currently unused; HudCanvas is the active implementation.)
  */
 public class HudPanel extends JPanel {
     private volatile double fps = 0;

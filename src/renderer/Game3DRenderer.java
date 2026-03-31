@@ -1,5 +1,7 @@
 package renderer;
 
+import hud.CommandHud;
+import hud.HudCanvas;
 import objects.BaseObject;
 import world.*;
 

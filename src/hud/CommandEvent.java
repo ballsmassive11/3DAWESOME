@@ -1,4 +1,4 @@
-package renderer;
+package hud;
 
 /**
  * Fired when the player submits text via the command HUD input bar.

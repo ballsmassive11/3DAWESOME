@@ -1,4 +1,4 @@
-package renderer;
+package hud;
 
 import objects.MeshObject;
 import java.util.concurrent.ExecutorService;
@@ -189,7 +189,6 @@ public class HudCanvas extends Canvas3D {
         int titleHeight = lineHeight + pad;
         int n = spawnableObjects.size();
 
-        // Compute panel width from longest name + "Spawn " prefix
         int maxNameW = fm.stringWidth("SPAWN OBJECTS");
         for (String[] info : spawnableObjects) {
             maxNameW = Math.max(maxNameW, fm.stringWidth(info[0]));
@@ -199,22 +198,18 @@ public class HudCanvas extends Canvas3D {
         int panelX = pad;
         int panelY = pad;
 
-        // Background
         g2.setColor(new Color(0, 0, 0, 140));
         g2.fillRoundRect(panelX, panelY, panelW, panelH, 10, 10);
 
-        // Title
         g2.setColor(new Color(200, 200, 255, 220));
         int titleX = panelX + (panelW - fm.stringWidth("SPAWN OBJECTS")) / 2;
         int titleY = panelY + fm.getAscent() + pad / 2;
         g2.drawString("SPAWN OBJECTS", titleX, titleY);
 
-        // Separator line
         int sepY = panelY + titleHeight + 2;
         g2.setColor(new Color(255, 255, 255, 60));
         g2.drawLine(panelX + pad, sepY, panelX + panelW - pad, sepY);
 
-        // Buttons
         int hovered = hoveredButton;
         Rectangle[] rects = new Rectangle[n];
         int btnX = panelX + pad;
