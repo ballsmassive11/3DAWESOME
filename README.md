@@ -1,6 +1,6 @@
 # 3DAWESOME
 
-A Java3D-based 3D world renderer with procedurally generated organic terrain, animated water, OBJ model loading, and a first-person camera.
+A Java3D-based 3D world renderer with procedurally generated organic terrain, animated water, OBJ model loading, a first-person camera, and an in-game command console.
 
 ## Features
 
@@ -10,6 +10,8 @@ A Java3D-based 3D world renderer with procedurally generated organic terrain, an
 - **OBJ model loading** — supports MTL materials and PBR texture maps (diffuse, metallic, roughness, normal, AO)
 - **First-person flying camera** — WASD movement, arrow key rotation, quaternion-based (no gimbal lock)
 - **HUD overlay** — real-time FPS, camera position/orientation, scene object count, and total triangle count
+- **Object spawner** — top-left panel lists all models in `src/resources/`; click to spawn in front of the camera
+- **In-game command console** — press `T` to open a text input bar; submit commands to change settings at runtime; history panel shows previous commands and responses
 - **Ambient + directional lighting**
 - **Fullscreen rendering** via Java3D Canvas3D
 
@@ -23,7 +25,19 @@ A Java3D-based 3D world renderer with procedurally generated organic terrain, an
 | `Shift` | Move down |
 | `←` / `→` | Yaw left / right |
 | `↑` / `↓` | Pitch up / down |
-| `Esc` | Quit |
+| `T` | Open command console |
+| `Esc` | Quit (or close console) |
+
+### Command Console
+
+Press `T` to open the input bar. Type a command and press `Enter` to submit, or `Esc` to cancel. Previous commands and their responses are shown in the history panel above the input bar.
+
+| Command | Description |
+|---------|-------------|
+| `fov <degrees>` | Set field of view (clamped 10–170°) |
+| `rdist <distance>` | Set render distance |
+| `fun` | Chaos mode |
+| `help` / `cmds` | List all commands |
 
 ## HUD Stats
 
@@ -36,6 +50,7 @@ Displayed in the top-right corner each frame:
 | Yaw / Pitch | Camera orientation (degrees) |
 | Objs | Total objects in the scene |
 | Tris | Total polygon (triangle) count |
+| Seed | World generation seed |
 
 ## Project Structure
 
@@ -44,8 +59,10 @@ src/
 ├── main/
 │   └── Main.java                   — entry point; builds world, loads models, creates JFrame
 ├── renderer/
-│   ├── Game3DRenderer.java         — Java3D universe, ViewingPlatform, keyboard input
-│   ├── HudCanvas.java              — Canvas3D subclass; draws HUD via postRender()
+│   ├── Game3DRenderer.java         — Java3D universe, ViewingPlatform, keyboard input, command handling
+│   ├── HudCanvas.java              — Canvas3D subclass; draws HUD and spawner via postRender()
+│   ├── CommandHud.java             — in-game text input bar; fires CommandEvents to listeners
+│   ├── CommandEvent.java           — event object wrapping submitted command text
 │   ├── HudPanel.java               — alternative Swing HUD overlay (unused)
 │   └── WorldUpdateBehavior.java    — per-frame Behavior; drives world.update() and HUD sync
 ├── world/
