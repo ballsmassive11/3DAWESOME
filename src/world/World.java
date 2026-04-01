@@ -1,7 +1,7 @@
 package world;
 
 import objects.BaseObject;
-import terrain.WaterHandler;
+import terrain.WaterHandlerLegacy;
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.util.ArrayList;
@@ -13,7 +13,7 @@ public class World {
     private Color3f backgroundColor;
     private Lighting lighting;
     private Camera camera;
-    private WaterHandler waterHandler;
+    private WaterHandlerLegacy waterHandlerLegacy;
     private int seed = 0;
 
     public World() {
@@ -52,13 +52,13 @@ public class World {
             obj.detachFromScene();
         }
         objects.clear();
-        waterHandler = null;
+        waterHandlerLegacy = null;
     }
 
     /**
      * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
      */
-    public void setWaterHandler(WaterHandler wh) { this.waterHandler = wh; }
+    public void setWaterHandler(WaterHandlerLegacy wh) { this.waterHandlerLegacy = wh; }
     public int getSeed() { return seed; }
     public void setSeed(int seed) { this.seed = seed; }
 
@@ -67,7 +67,7 @@ public class World {
         for (BaseObject obj : new ArrayList<>(objects)) {
             obj.update(deltaTime);
         }
-        if (waterHandler != null) waterHandler.update(deltaTime);
+        if (waterHandlerLegacy != null) waterHandlerLegacy.update(deltaTime);
     }
 
     public Camera getCamera() {return camera;}

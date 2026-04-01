@@ -3,7 +3,7 @@ package renderer;
 import hud.CommandHud;
 import hud.HudCanvas;
 import objects.BaseObject;
-import terrain.MapGenerator;
+import terrain.MapGeneratorLegacy;
 import world.*;
 
 import javax.media.j3d.*;
@@ -217,7 +217,8 @@ public class Game3DRenderer {
 
             List<BaseObject> objects = world.getObjects();
             for (BaseObject obj : objects) {
-                Vector3d Vec = new Vector3d((float)(Math.random()-0.5)*20, (float)(Math.random()-0.5)*20, (float)(Math.random()-0.5)*20);
+                int speed = 50;
+                Vector3d Vec = new Vector3d((float)(Math.random()-0.5)*speed, (float)(Math.random()-0.5)*speed, (float)(Math.random()-0.5)*speed);
                 obj.setAngularVelocity(Vec);
 
             }
@@ -287,7 +288,7 @@ public class Game3DRenderer {
             try {
                 world.clearObjects();
 
-                MapGenerator gen = new MapGenerator();
+                MapGeneratorLegacy gen = new MapGeneratorLegacy();
                 gen.setSeed(fSeed);
                 gen.setGridSize(fSize);
                 gen.setHeightScale(fHeight);
