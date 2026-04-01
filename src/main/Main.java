@@ -1,7 +1,7 @@
 package main;
 
 import world.*;
-import terrain.MapGeneratorLegacy;
+import terrain.MapGenerator;
 import renderer.*;
 import objects.MeshObject;
 import javax.vecmath.Color3f;
@@ -18,7 +18,7 @@ public class Main {
         System.out.println("creating the world object");
         World world = new World();
 
-        MapGeneratorLegacy mapGen = new MapGeneratorLegacy();
+        MapGenerator mapGen = new MapGenerator();
         //mapGen.setGeneratorToNoise();
         int seed = (int) System.currentTimeMillis();
         mapGen.setSeed(seed);

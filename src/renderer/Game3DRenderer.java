@@ -4,6 +4,8 @@ import hud.CommandHud;
 import hud.HudCanvas;
 import objects.BaseObject;
 import terrain.MapGeneratorLegacy;
+import terrain.MapGenerator;
+
 import world.*;
 
 import javax.media.j3d.*;
@@ -227,12 +229,18 @@ public class Game3DRenderer {
             String params = parts.length == 2 ? parts[1] : "";
             generateMap(hud, params);
 
+        } else if (cmd.equals("genmapl")) {
+            String params = parts.length == 2 ? parts[1] : "";
+            generateMapLegacy(hud, params);
+
         } else if (cmd.equals("delmap")) {
             deleteMap(hud);
-        }else if (cmd.equals("cmds") || cmd.equals("help")) {
+        } else if (cmd.equals("cmds") || cmd.equals("help")) {
             hud.logOutput("fov <degrees>           - Set field of view (10-170)");
             hud.logOutput("rdist <distance>        - Set render distance");
-            hud.logOutput("genmap [key=val ...]    - Regenerate terrain");
+            hud.logOutput("genmap [key=val ...]    - Regenerate mesh terrain");
+            hud.logOutput("  params: seed size height threshold cellsize");
+            hud.logOutput("genmapL [key=val ...]   - Regenerate terrain (legacy brick mode)");
             hud.logOutput("  params: seed size height threshold blockwidth");
             hud.logOutput("delmap                  - Delete the current terrain");
             hud.logOutput("fun                     - would recommend turning render distance down");
@@ -243,14 +251,75 @@ public class Game3DRenderer {
     }
 
     /**
-     * Parses key=value params and regenerates the terrain on a background thread.
-     * Supported params: seed, size, height, threshold, blockwidth
-     * Example: genmap seed=42 size=120 height=24 threshold=0.1 blockwidth=0.6
+     * Regenerates the terrain using the new mesh-based MapGenerator.
+     * Supported params: seed, size, height, threshold, cellsize
+     * Example: genmap seed=42 size=120 height=24 threshold=0.1 cellsize=0.6
      */
     private void generateMap(CommandHud hud, String params) {
-        // Parse key=value pairs
-        int seed         = (int) System.currentTimeMillis();
-        int size         = 160;
+        int   seed      = (int) System.currentTimeMillis();
+        int   size      = 160;
+        float height    = 16.0f;
+        float threshold = 0.05f;
+        float cellSize  = 0.8f;
+
+        for (String token : params.trim().split("\\s+")) {
+            if (token.isEmpty()) continue;
+            String[] kv = token.split("=", 2);
+            if (kv.length != 2) { hud.logOutput("Skipping bad param: " + token); continue; }
+            String key = kv[0].toLowerCase();
+            String val = kv[1];
+            try {
+                switch (key) {
+                    case "seed":      seed      = Integer.parseInt(val);  break;
+                    case "size":      size      = Integer.parseInt(val);  break;
+                    case "height":    height    = Float.parseFloat(val);  break;
+                    case "threshold": threshold = Float.parseFloat(val);  break;
+                    case "cellsize":  cellSize  = Float.parseFloat(val);  break;
+                    default: hud.logOutput("Unknown param: " + key); break;
+                }
+            } catch (NumberFormatException e) {
+                hud.logOutput("Invalid value for " + key + ": " + val);
+                return;
+            }
+        }
+
+        final int fSeed = seed, fSize = size;
+        final float fHeight = height, fThreshold = threshold, fCellSize = cellSize;
+
+        hud.logOutput("Generating mesh map (seed=" + fSeed + " size=" + fSize
+                + " height=" + fHeight + " threshold=" + fThreshold + ") ...");
+
+        Thread t = new Thread(() -> {
+            canvas.stopRenderer();
+            try {
+                world.clearObjects();
+
+                MapGenerator gen = new MapGenerator();
+                gen.setSeed(fSeed);
+                gen.setGridSize(fSize);
+                gen.setHeightScale(fHeight);
+                gen.setThreshold(fThreshold);
+                gen.setCellSize(fCellSize);
+                gen.generate(world);
+
+                world.setSeed(fSeed);
+            } finally {
+                canvas.startRenderer();
+            }
+            hud.logOutput("Map ready.");
+        }, "genmap-thread");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /**
+     * Regenerates the terrain using the legacy brick-based MapGeneratorLegacy.
+     * Supported params: seed, size, height, threshold, blockwidth
+     * Example: genmapL seed=42 size=120 height=24 threshold=0.1 blockwidth=0.6
+     */
+    private void generateMapLegacy(CommandHud hud, String params) {
+        int   seed       = (int) System.currentTimeMillis();
+        int   size       = 160;
         float height     = 16.0f;
         float threshold  = 0.05f;
         float blockWidth = 0.8f;
@@ -263,11 +332,11 @@ public class Game3DRenderer {
             String val = kv[1];
             try {
                 switch (key) {
-                    case "seed":       seed       = Integer.parseInt(val);   break;
-                    case "size":       size       = Integer.parseInt(val);   break;
-                    case "height":     height     = Float.parseFloat(val);   break;
-                    case "threshold":  threshold  = Float.parseFloat(val);   break;
-                    case "blockwidth": blockWidth = Float.parseFloat(val);   break;
+                    case "seed":       seed       = Integer.parseInt(val);  break;
+                    case "size":       size       = Integer.parseInt(val);  break;
+                    case "height":     height     = Float.parseFloat(val);  break;
+                    case "threshold":  threshold  = Float.parseFloat(val);  break;
+                    case "blockwidth": blockWidth = Float.parseFloat(val);  break;
                     default: hud.logOutput("Unknown param: " + key); break;
                 }
             } catch (NumberFormatException e) {
@@ -276,11 +345,10 @@ public class Game3DRenderer {
             }
         }
 
-        final int fSeed = seed;
-        final int fSize = size;
+        final int fSeed = seed, fSize = size;
         final float fHeight = height, fThreshold = threshold, fBlockWidth = blockWidth;
 
-        hud.logOutput("Generating map (seed=" + fSeed + " size=" + fSize
+        hud.logOutput("Generating legacy map (seed=" + fSeed + " size=" + fSize
                 + " height=" + fHeight + " threshold=" + fThreshold + ") ...");
 
         Thread t = new Thread(() -> {
@@ -301,7 +369,7 @@ public class Game3DRenderer {
                 canvas.startRenderer();
             }
             hud.logOutput("Map ready.");
-        }, "genmap-thread");
+        }, "genmapl-thread");
         t.setDaemon(true);
         t.start();
     }
