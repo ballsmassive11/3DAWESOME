@@ -9,7 +9,7 @@ import javax.media.j3d.Material;
 import javax.media.j3d.TransparencyAttributes;
 import javax.vecmath.Color3f;
 
-public class MapGenerator {
+public class MapGeneratorLegacy {
     private final FastNoiseLite noise;
     private final FastNoiseLite warpNoise;
     private int gridSize = 160;
@@ -19,7 +19,7 @@ public class MapGenerator {
     private float zOffset = -10.0f;
     private float blockWidth = 0.8f;
 
-    public MapGenerator() {
+    public MapGeneratorLegacy() {
         // Domain warp: displaces sample coordinates to produce twisty, organic shapes
         warpNoise = new FastNoiseLite();
         warpNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
@@ -97,7 +97,7 @@ public class MapGenerator {
         appearance.setTransparencyAttributes(new TransparencyAttributes(TransparencyAttributes.BLENDED, 0.5f));
 
         world.addObject(water);
-        world.setWaterHandler(new WaterHandler(water, -10.2));
+        world.setWaterHandler(new WaterHandlerLegacy(water, -10.2));
     }
 
     /** Height-based color gradient: sand → grass → forest → rock → snow */

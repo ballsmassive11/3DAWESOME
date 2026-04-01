@@ -3,14 +3,14 @@ package terrain;
 import objects.Brick;
 import javax.vecmath.Vector3d;
 
-public class WaterHandler {
+public class WaterHandlerLegacy {
     private final Brick water;
     private final double baseY;
     private final double amplitude;
     private final double speed;
     private double time = 0;
 
-    public WaterHandler(Brick water, double baseY) {
+    public WaterHandlerLegacy(Brick water, double baseY) {
         this.water = water;
         this.baseY = baseY;
         this.amplitude = 0.08;
