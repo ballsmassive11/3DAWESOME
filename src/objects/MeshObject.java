@@ -106,13 +106,13 @@ public class MeshObject extends BaseObject {
     @Override
     public BranchGroup getBranchGroup() {
         if (modelRoot != null) {
-            // Detach if already attached somewhere (though ObjectFile's scene group is usually detached initially)
             if (modelRoot.getParent() != null) {
                 modelRoot.detach();
             }
             transformGroup.addChild(modelRoot);
         }
         branchGroup.addChild(transformGroup);
+        addHitboxWireframe();
         updateTransform();
         return branchGroup;
     }

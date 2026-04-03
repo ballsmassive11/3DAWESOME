@@ -2,6 +2,7 @@ package terrain;
 
 import objects.Brick;
 import objects.TerrainMesh;
+import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
 import world.World;
 
@@ -16,14 +17,14 @@ import javax.vecmath.*;
  * triangulated surface — like a sheet of paper that rises and falls.
  * Per-vertex colours carry the height gradient (sand → grass → rock → snow).
  */
-public class MapGenerator {
+public class MapGenerator implements TerrainHeightProvider {
 
     private final FastNoiseLite noise;
     private final FastNoiseLite warpNoise;
 
     private int   gridSize    = 160;
     private float cellSize    = 0.8f;
-    private float threshold   = 0.05f;   // noise value below which terrain is "under water"
+    private float threshold   = -0.2f;   // noise value below which terrain is "under water"
     private float heightScale = 16.0f;
     private float zOffset     = -10.0f;  // shift the whole terrain along -Z
 
@@ -40,11 +41,11 @@ public class MapGenerator {
         // Main terrain: FBm for natural fractal detail
         noise = new FastNoiseLite();
         noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        noise.SetFrequency(0.042f);
+        noise.SetFrequency(0.022f);
         noise.SetFractalType(FastNoiseLite.FractalType.FBm);
         noise.SetFractalOctaves(5);
         noise.SetFractalLacunarity(2.0f);
-        noise.SetFractalGain(0.4f);
+        noise.SetFractalGain(0.3f);
     }
 
     // ------------------------------------------------------------------
@@ -109,6 +110,7 @@ public class MapGenerator {
 
         // Transparent water plane — same as legacy setup
         Brick water = new Brick(gridSize, 80f, gridSize);
+        water.setCollidable(false);   // purely visual — player should not collide with the water box
         water.setPosition(0, -35.1f, zOffset);
 
         Appearance waterApp = water.getAppearance();
@@ -124,6 +126,36 @@ public class MapGenerator {
 
         world.addObject(water);
         world.setWaterHandler(new WaterHandlerLegacy(water, -40.1f));
+
+        world.setTerrainProvider(this);
+    }
+
+    // ------------------------------------------------------------------
+    // TerrainHeightProvider
+    // ------------------------------------------------------------------
+
+    /**
+     * Returns the terrain Y height (world-space) at (wx, wz).
+     * Mirrors the height formula used during mesh generation so the physics
+     * system can query the exact ground level without touching the geometry.
+     */
+    @Override
+    public float getHeightAt(float wx, float wz) {
+        // Undo the terrain's world-space Z offset to get noise-space coordinates
+        float nx = wx;
+        float nz = wz - zOffset;
+
+        FastNoiseLite.Vector2 coord = new FastNoiseLite.Vector2(nx, nz);
+        warpNoise.DomainWarp(coord);
+        float noiseVal = noise.GetNoise(coord.x, coord.y);
+
+        if (noiseVal < threshold) {
+            float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
+            return -(float) Math.pow(depth, 1.5) * 4.0f;
+        } else {
+            float t = (noiseVal - threshold) / (1.0f - threshold);
+            return (float) Math.pow(t, 2.5) * heightScale;
+        }
     }
 
     // ------------------------------------------------------------------

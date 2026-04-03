@@ -3,6 +3,10 @@ package renderer;
 import hud.CommandHud;
 import hud.HudCanvas;
 import objects.BaseObject;
+import objects.Brick;
+import objects.Cube;
+import objects.MeshObject;
+import physics.AABB;
 import terrain.MapGeneratorLegacy;
 import terrain.MapGenerator;
 
@@ -12,7 +16,9 @@ import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 import com.sun.j3d.utils.universe.ViewingPlatform;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.awt.*;
 import java.awt.event.*;
 
@@ -235,14 +241,34 @@ public class Game3DRenderer {
 
         } else if (cmd.equals("delmap")) {
             deleteMap(hud);
+
+        } else if (cmd.equals("spawn")) {
+            spawnObject(hud, parts.length == 2 ? parts[1] : "");
+
+        } else if (cmd.equals("hitbox") && parts.length == 2) {
+            String arg = parts[1].trim().toLowerCase();
+            if (arg.equals("on")) {
+                world.setHitboxVisible(true);
+                hud.logOutput("Hitboxes visible.");
+            } else if (arg.equals("off")) {
+                world.setHitboxVisible(false);
+                hud.logOutput("Hitboxes hidden.");
+            } else {
+                hud.logOutput("Usage: hitbox on|off");
+            }
+
         } else if (cmd.equals("cmds") || cmd.equals("help")) {
             hud.logOutput("fov <degrees>           - Set field of view (10-170)");
             hud.logOutput("rdist <distance>        - Set render distance");
             hud.logOutput("genmap [key=val ...]    - Regenerate mesh terrain");
             hud.logOutput("  params: seed size height threshold cellsize");
-            hud.logOutput("genmapL [key=val ...]   - Regenerate terrain (legacy brick mode)");
+            hud.logOutput("genmapl [key=val ...]   - Regenerate terrain (legacy brick mode)");
             hud.logOutput("  params: seed size height threshold blockwidth");
             hud.logOutput("delmap                  - Delete the current terrain");
+            hud.logOutput("hitbox on|off           - Toggle AABB hitbox wireframes");
+            hud.logOutput("spawn cube [key=val ...] - Spawn a cube   (size x y z collide)");
+            hud.logOutput("spawn brick [key=val ...]- Spawn a brick  (w h d x y z collide)");
+            hud.logOutput("spawn mesh [key=val ...] - Spawn a mesh   (path x y z aabbx aabby aabbz collide)");
             hud.logOutput("fun                     - would recommend turning render distance down");
             hud.logOutput("cmds / help             - Show this message");
         } else {
@@ -259,7 +285,7 @@ public class Game3DRenderer {
         int   seed      = (int) System.currentTimeMillis();
         int   size      = 160;
         float height    = 16.0f;
-        float threshold = 0.05f;
+        float threshold = -0.1f;
         float cellSize  = 0.8f;
 
         for (String token : params.trim().split("\\s+")) {
@@ -373,6 +399,149 @@ public class Game3DRenderer {
         t.setDaemon(true);
         t.start();
     }
+
+    /**
+     * Parses and dispatches a spawn command.
+     *
+     * spawn cube  [size=1]  [x] [y] [z]  [collide=true]
+     * spawn brick [w=1] [h=1] [d=1]  [x] [y] [z]  [collide=true]
+     * spawn mesh  path=<file>  [x] [y] [z]  [aabbx] [aabby] [aabbz]  [collide=true]
+     *
+     * Default position is 3 units in front of the player at foot level.
+     * For mesh objects, aabbx/aabby/aabbz set the AABB half-extents (opt).
+     * collide=false disables AABB collision for the spawned object.
+     */
+    private void spawnObject(CommandHud hud, String args) {
+        String[] tokens = args.trim().split("\\s+");
+        if (tokens.length == 0 || tokens[0].isEmpty()) {
+            hud.logOutput("Usage: spawn cube|brick|mesh [params]");
+            return;
+        }
+
+        String type = tokens[0].toLowerCase();
+
+        // Default spawn position: 3 units in front of player at foot level
+        Camera cam = world.getCamera();
+        double defaultX = cam.getPosition().x + Math.sin(cam.getYaw()) * 3.0;
+        double defaultY = cam.getPosition().y - physics.PlayerPhysics.EYE_HEIGHT;
+        double defaultZ = cam.getPosition().z - Math.cos(cam.getYaw()) * 3.0;
+
+        Map<String, String> kv = parseKVTokens(hud, tokens, 1);
+
+        switch (type) {
+            case "cube": {
+                float size    = getFloat(kv, "size", 1.0f);
+                double x      = getDouble(kv, "x", defaultX);
+                double y      = getDouble(kv, "y", defaultY + size / 2.0);
+                double z      = getDouble(kv, "z", defaultZ);
+                boolean col   = getBool(kv, "collide", true);
+
+                Cube cube = new Cube(size);
+                cube.setCollidable(col);
+                cube.setPosition(x, y, z);
+                world.addObject(cube);
+                hud.logOutput("Spawned cube (size=" + size + ", collide=" + col + ") at ("
+                        + fmt(x) + ", " + fmt(y) + ", " + fmt(z) + ")");
+                break;
+            }
+            case "brick": {
+                float w     = getFloat(kv, "w", 1.0f);
+                float h     = getFloat(kv, "h", 1.0f);
+                float d     = getFloat(kv, "d", 1.0f);
+                double x    = getDouble(kv, "x", defaultX);
+                double y    = getDouble(kv, "y", defaultY + h / 2.0);
+                double z    = getDouble(kv, "z", defaultZ);
+                boolean col = getBool(kv, "collide", true);
+
+                Brick brick = new Brick(w, h, d);
+                brick.setCollidable(col);
+                brick.setPosition(x, y, z);
+                world.addObject(brick);
+                hud.logOutput("Spawned brick (" + w + "x" + h + "x" + d + ", collide=" + col + ") at ("
+                        + fmt(x) + ", " + fmt(y) + ", " + fmt(z) + ")");
+                break;
+            }
+            case "mesh": {
+                if (!kv.containsKey("path")) {
+                    hud.logOutput("spawn mesh requires path=<file>");
+                    return;
+                }
+                String path = kv.get("path");
+                double x    = getDouble(kv, "x", defaultX);
+                double y    = getDouble(kv, "y", defaultY);
+                double z    = getDouble(kv, "z", defaultZ);
+
+                // Optional AABB half-extents
+                AABB aabb = null;
+                if (kv.containsKey("aabbx") && kv.containsKey("aabby") && kv.containsKey("aabbz")) {
+                    try {
+                        float ax = Float.parseFloat(kv.get("aabbx"));
+                        float ay = Float.parseFloat(kv.get("aabby"));
+                        float az = Float.parseFloat(kv.get("aabbz"));
+                        aabb = new AABB(ax, ay, az);
+                    } catch (NumberFormatException e) {
+                        hud.logOutput("Invalid aabb values — ignoring.");
+                    }
+                }
+
+                boolean col = getBool(kv, "collide", true);
+
+                final double fx = x, fy = y, fz = z;
+                final AABB   fAABB = aabb;
+                final String fPath = path;
+                final boolean fCol = col;
+
+                // File loading may be slow — run on a background thread
+                Thread t = new Thread(() -> {
+                    canvas.stopRenderer();
+                    try {
+                        MeshObject mesh = new MeshObject(fPath);
+                        if (fAABB != null) mesh.setLocalAABB(fAABB);
+                        mesh.setCollidable(fCol);
+                        mesh.setPosition(fx, fy, fz);
+                        world.addObject(mesh);
+                    } finally {
+                        canvas.startRenderer();
+                    }
+                    hud.logOutput("Spawned mesh (" + fPath + ", collide=" + fCol + ") at ("
+                            + fmt(fx) + ", " + fmt(fy) + ", " + fmt(fz) + ")"
+                            + (fAABB != null ? " with AABB" : ""));
+                }, "spawn-mesh-thread");
+                t.setDaemon(true);
+                t.start();
+                hud.logOutput("Loading " + path + " ...");
+                break;
+            }
+            default:
+                hud.logOutput("Unknown type: " + type + "  (cube|brick|mesh)");
+        }
+    }
+
+    /** Parses key=value tokens starting at index {@code start} into a map. */
+    private Map<String, String> parseKVTokens(CommandHud hud, String[] tokens, int start) {
+        Map<String, String> map = new LinkedHashMap<>();
+        for (int i = start; i < tokens.length; i++) {
+            if (tokens[i].isEmpty()) continue;
+            String[] pair = tokens[i].split("=", 2);
+            if (pair.length != 2) { hud.logOutput("Skipping bad param: " + tokens[i]); continue; }
+            map.put(pair[0].toLowerCase(), pair[1]);
+        }
+        return map;
+    }
+
+    private float  getFloat (Map<String,String> kv, String key, float  def) {
+        if (!kv.containsKey(key)) return def;
+        try { return Float.parseFloat(kv.get(key)); } catch (NumberFormatException e) { return def; }
+    }
+    private double getDouble(Map<String,String> kv, String key, double def) {
+        if (!kv.containsKey(key)) return def;
+        try { return Double.parseDouble(kv.get(key)); } catch (NumberFormatException e) { return def; }
+    }
+    private boolean getBool(Map<String,String> kv, String key, boolean def) {
+        if (!kv.containsKey(key)) return def;
+        return !kv.get(key).equalsIgnoreCase("false");
+    }
+    private String fmt(double v) { return String.format("%.1f", v); }
 
     private void deleteMap(CommandHud hud) {
         world.clearObjects();

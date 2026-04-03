@@ -19,7 +19,8 @@ public class Brick extends BaseObject {
      */
     public Brick(float xSize, float ySize, float zSize) {
         super();
-        this.size = new Vector3f(xSize,ySize,zSize);
+        this.size = new Vector3f(xSize, ySize, zSize);
+        this.localAABB = new physics.AABB(xSize / 2f, ySize / 2f, zSize / 2f);
     }
 
     /**
@@ -32,6 +33,7 @@ public class Brick extends BaseObject {
                 appearance);
         transformGroup.addChild(box);
         branchGroup.addChild(transformGroup);
+        addHitboxWireframe();
         updateTransform();
         return branchGroup;
     }

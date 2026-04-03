@@ -21,6 +21,7 @@ public class Cube extends BaseObject {
     public Cube(float size) {
         super();
         this.size = size;
+        this.localAABB = new physics.AABB(size / 2f, size / 2f, size / 2f);
     }
 
     /**
@@ -33,6 +34,7 @@ public class Cube extends BaseObject {
                          appearance);
         transformGroup.addChild(box);
         branchGroup.addChild(transformGroup);
+        addHitboxWireframe();
         updateTransform();
         return branchGroup;
     }

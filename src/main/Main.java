@@ -1,9 +1,9 @@
 package main;
 
+import objects.*;
 import world.*;
 import terrain.MapGenerator;
 import renderer.*;
-import objects.MeshObject;
 import javax.vecmath.Color3f;
 import javax.swing.*;
 import java.awt.*;
@@ -24,6 +24,10 @@ public class Main {
         mapGen.setSeed(seed);
         world.setSeed(seed);
         mapGen.generate(world);
+
+        Cube cube = new Cube(5);
+        cube.setPosition(0, 10, 20);
+        world.addObject(cube);
 
         // Add the model object
         MeshObject suzanne = new MeshObject("src/resources/Suzanne/suzanne.obj");

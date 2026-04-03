@@ -28,7 +28,9 @@ public class CommandHud {
     /** Key that opens the input bar when it is currently closed. */
     public static final int TOGGLE_KEY = KeyEvent.VK_T;
 
+    // Maximum number of messages retained in chat history
     private static final int MAX_HISTORY = 60;
+    // Number of chat lines visible in the HUD at once
     private static final int VISIBLE_LINES = 12;
     private static final boolean CLOSE_BAR_ON_ENTER = true;
 

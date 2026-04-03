@@ -1,7 +1,11 @@
 package world;
 
 import objects.BaseObject;
+import physics.AABB;
+import physics.PlayerPhysics;
+import physics.TerrainHeightProvider;
 import terrain.WaterHandlerLegacy;
+
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.util.ArrayList;
@@ -14,6 +18,8 @@ public class World {
     private Lighting lighting;
     private Camera camera;
     private WaterHandlerLegacy waterHandlerLegacy;
+    private PlayerPhysics playerPhysics;
+    private boolean hitboxesVisible = false;
     private int seed = 0;
 
     public World() {
@@ -24,68 +30,74 @@ public class World {
         this.backgroundColor = new Color3f(0.8f, 0.8f, 0.9f);
         this.camera = new Camera();
         this.lighting = new Lighting();
+        this.playerPhysics = new PlayerPhysics();
     }
 
-    public Lighting getLighting() {return lighting;}
+    public Lighting getLighting() { return lighting; }
 
-    /**
-     * Add an object to the world
-     */
     public void addObject(BaseObject object) {
         objects.add(object);
         sceneBranchGroup.addChild(object.getBranchGroup());
+        // Apply the current hitbox visibility to the newly added object
+        object.setHitboxVisible(hitboxesVisible);
     }
 
-    /**
-     * Remove an object from the world and detach it from the scene graph.
-     */
     public void removeObject(BaseObject object) {
         object.detachFromScene();
         objects.remove(object);
     }
 
-    /**
-     * Remove all objects from the world and clear the water handler.
-     */
     public void clearObjects() {
-        for (BaseObject obj : objects) {
-            obj.detachFromScene();
-        }
+        for (BaseObject obj : objects) obj.detachFromScene();
         objects.clear();
         waterHandlerLegacy = null;
+        playerPhysics.setTerrainProvider(null);
     }
 
-    /**
-     * Advance all objects and camera by deltaTime seconds. Called each frame by WorldUpdateBehavior.
-     */
+    public void setTerrainProvider(TerrainHeightProvider provider) {
+        playerPhysics.setTerrainProvider(provider);
+    }
+
+    /** Toggle yellow wireframe hitboxes on all current and future objects. */
+    public void setHitboxVisible(boolean visible) {
+        hitboxesVisible = visible;
+        for (BaseObject obj : objects) obj.setHitboxVisible(visible);
+    }
+
+    public boolean isHitboxVisible() { return hitboxesVisible; }
+
     public void setWaterHandler(WaterHandlerLegacy wh) { this.waterHandlerLegacy = wh; }
-    public int getSeed() { return seed; }
-    public void setSeed(int seed) { this.seed = seed; }
+    public int  getSeed()              { return seed; }
+    public void setSeed(int seed)      { this.seed = seed; }
+    public PlayerPhysics getPlayerPhysics() { return playerPhysics; }
 
     public void update(double deltaTime) {
         camera.update(deltaTime);
-        for (BaseObject obj : new ArrayList<>(objects)) {
-            obj.update(deltaTime);
+
+        // Collect world-space AABBs of all collidable objects
+        List<AABB> collidables = new ArrayList<>();
+        for (BaseObject obj : objects) {
+            AABB a = obj.getWorldAABB();
+            if (a != null) collidables.add(a);
         }
+
+        playerPhysics.update(deltaTime, camera.getPosition(),
+                             camera.consumeJumpRequest(), collidables);
+
+        for (BaseObject obj : new ArrayList<>(objects)) obj.update(deltaTime);
         if (waterHandlerLegacy != null) waterHandlerLegacy.update(deltaTime);
     }
 
-    public Camera getCamera() {return camera;}
+    public Camera getCamera() { return camera; }
 
-    /**
-     * Get the scene graph for rendering
-     */
     public BranchGroup getSceneBranchGroup() {
-        // Add lights if not already added
         if (sceneBranchGroup.numChildren() == objects.size()) {
             lighting.addToScene(sceneBranchGroup);
         }
         return sceneBranchGroup;
     }
 
-    public Color3f getBackgroundColor() {
-        return backgroundColor;
-    }
+    public Color3f getBackgroundColor() { return backgroundColor; }
 
     public void setBackgroundColor(Color3f backgroundColor) {
         this.backgroundColor = backgroundColor;

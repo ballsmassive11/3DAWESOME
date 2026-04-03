@@ -32,14 +32,15 @@ A Java3D-based 3D world renderer with procedurally generated organic terrain, an
 
 Press `T` to open the input bar. Type a command and press `Enter` to submit, or `Esc` to cancel. Previous commands and their responses are shown in the history panel above the input bar.
 
-| Command              | Description                                                                             |
-|----------------------|-----------------------------------------------------------------------------------------|
-| `fov <degrees>`      | Set field of view (clamped 10–170°)                                                     |
-| `rdist <distance>`   | Set render distance                                                                     |
-| `genmap [key=value]` | Deletes old map and generates new map<br/>Params: seed size height threshold blockwidth |
-| `delmap`             | Deletes current map                                                                     |
-| `fun`                | dont start this                                                                         |
-| `help` / `cmds`      | List all commands                                                                       |
+| Command               | Description                                                                              |
+|-----------------------|------------------------------------------------------------------------------------------|
+| `fov <degrees>`       | Set field of view (clamped 10–170°)                                                      |
+| `rdist <distance>`    | Set render distance                                                                      |
+| `genmap [key=value]`  | Regenerates map<br/>Params: seed size height threshold cellsize                          |
+| `genmapl [key=value]` | Regenrates map using legacy algorithm <br/>Params: seed size height threshold blockwidth |
+| `delmap`              | Deletes current map                                                                      |
+| `fun`                 | dont start this                                                                          |
+| `help` / `cmds`       | List all commands                                                                        |
 
 ## HUD Stats
 

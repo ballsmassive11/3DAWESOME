@@ -1,5 +1,7 @@
 package objects;
 
+import physics.AABB;
+
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.geometry.*;
@@ -20,6 +22,11 @@ public abstract class BaseObject {
     protected int polygonCount = 0;
     private Vector3d velocity;
     private Vector3d angularVelocity;
+
+    // Collision / hitbox
+    protected AABB localAABB = null;      // local-space AABB, null = no collision
+    private boolean collidable = true;    // false = skip collision even if localAABB is set
+    private RenderingAttributes hitboxRA; // controls wireframe visibility after compile
 
     /**
      * Constructor initializes the object with default values.
@@ -95,6 +102,84 @@ public abstract class BaseObject {
      */
     protected abstract Shape3D createGeometry();
 
+    // ------------------------------------------------------------------
+    // Collision / AABB
+    // ------------------------------------------------------------------
+
+    /** Set the local-space AABB for this object. Must be called before getBranchGroup(). */
+    public void setLocalAABB(AABB aabb) { this.localAABB = aabb; }
+
+    public AABB getLocalAABB() { return localAABB; }
+
+    /** When false, this object is excluded from collision checks even if it has an AABB. */
+    public void setCollidable(boolean collidable) { this.collidable = collidable; }
+
+    /**
+     * Returns the world-space AABB for this frame, or null if not collidable.
+     * The local AABB is simply offset by the object's current position
+     * (rotation is intentionally ignored — axis-aligned stays axis-aligned).
+     */
+    public AABB getWorldAABB() {
+        if (!collidable || localAABB == null) return null;
+        return localAABB.translate((float) position.x, (float) position.y, (float) position.z);
+    }
+
+    /**
+     * Show or hide the yellow wireframe hitbox overlay.
+     * Safe to call at any time after getBranchGroup() has been invoked.
+     */
+    public void setHitboxVisible(boolean visible) {
+        if (hitboxRA != null) hitboxRA.setVisible(visible);
+    }
+
+    /**
+     * Adds a yellow wireframe matching localAABB as a child of transformGroup.
+     * No-op if localAABB is null. Must be called inside getBranchGroup() AFTER
+     * transformGroup has been populated (but before the scene is compiled).
+     */
+    protected void addHitboxWireframe() {
+        if (localAABB == null) return;
+
+        float x0 = localAABB.minX, y0 = localAABB.minY, z0 = localAABB.minZ;
+        float x1 = localAABB.maxX, y1 = localAABB.maxY, z1 = localAABB.maxZ;
+
+        Point3f[] pts = {
+            // Bottom face
+            new Point3f(x0,y0,z0), new Point3f(x1,y0,z0),
+            new Point3f(x1,y0,z0), new Point3f(x1,y0,z1),
+            new Point3f(x1,y0,z1), new Point3f(x0,y0,z1),
+            new Point3f(x0,y0,z1), new Point3f(x0,y0,z0),
+            // Top face
+            new Point3f(x0,y1,z0), new Point3f(x1,y1,z0),
+            new Point3f(x1,y1,z0), new Point3f(x1,y1,z1),
+            new Point3f(x1,y1,z1), new Point3f(x0,y1,z1),
+            new Point3f(x0,y1,z1), new Point3f(x0,y1,z0),
+            // Vertical edges
+            new Point3f(x0,y0,z0), new Point3f(x0,y1,z0),
+            new Point3f(x1,y0,z0), new Point3f(x1,y1,z0),
+            new Point3f(x1,y0,z1), new Point3f(x1,y1,z1),
+            new Point3f(x0,y0,z1), new Point3f(x0,y1,z1),
+        };
+
+        LineArray la = new LineArray(24, GeometryArray.COORDINATES);
+        la.setCoordinates(0, pts);
+
+        hitboxRA = new RenderingAttributes();
+        hitboxRA.setCapability(RenderingAttributes.ALLOW_VISIBLE_WRITE);
+        hitboxRA.setVisible(false);
+
+        Appearance wireApp = new Appearance();
+        wireApp.setColoringAttributes(
+                new ColoringAttributes(1f, 1f, 0f, ColoringAttributes.FASTEST));
+        wireApp.setLineAttributes(
+                new LineAttributes(2f, LineAttributes.PATTERN_SOLID, true));
+        wireApp.setRenderingAttributes(hitboxRA);
+
+        transformGroup.addChild(new Shape3D(la, wireApp));
+    }
+
+    // ------------------------------------------------------------------
+
     /**
      * Build and return the scene graph for this object.
      */
@@ -109,6 +194,7 @@ public abstract class BaseObject {
         shape.setAppearance(appearance);
         transformGroup.addChild(shape);
         branchGroup.addChild(transformGroup);
+        addHitboxWireframe();
         updateTransform();
         return branchGroup;
     }
