@@ -16,9 +16,12 @@ import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 import com.sun.j3d.utils.universe.ViewingPlatform;
+import physics.TerrainHeightProvider;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.awt.*;
 import java.awt.event.*;
 
@@ -33,6 +36,14 @@ public class Game3DRenderer {
     private TransformGroup viewTransformGroup;
     private double fov = Math.PI / 3.0; // 60 degrees default
     private double renderDistance = 10.0;
+    private LinearFog fog;
+
+    // 3rd-person orbit camera
+    private double camOrbitRadius = 5.0;
+    private static final double CAM_ZOOM_SPEED = 4.0;
+    private static final double CAM_MIN_RADIUS = 1.0;
+    private static final double CAM_MAX_RADIUS = 20.0;
+    private final Set<Integer> zoomKeys = new HashSet<>();
 
     /**
      * Create a renderer for the given world
@@ -70,7 +81,12 @@ public class Game3DRenderer {
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     System.exit(0);
                 }
-                world.getCamera().keyPressed(e.getKeyCode());
+                int kc = e.getKeyCode();
+                if (kc == KeyEvent.VK_I || kc == KeyEvent.VK_O) {
+                    zoomKeys.add(kc);
+                    return;
+                }
+                world.getCamera().keyPressed(kc);
             }
 
             @Override
@@ -83,6 +99,7 @@ public class Game3DRenderer {
 
             @Override
             public void keyReleased(KeyEvent e) {
+                zoomKeys.remove(e.getKeyCode());
                 // Don't release camera keys while command bar is open so no
                 // movement bleeds through when the bar closes.
                 if (!canvas.getCommandHud().isActive()) {
@@ -95,7 +112,7 @@ public class Game3DRenderer {
         universe = new SimpleUniverse(canvas);
         universe.getViewer().getView().setFieldOfView(fov);
         universe.getViewer().getView().setBackClipDistance(renderDistance);   // render distance
-        universe.getViewer().getView().setFrontClipDistance(0.1);
+        universe.getViewer().getView().setFrontClipDistance(0.05);
 
         // Setup the viewing platform
         viewingPlatform = universe.getViewingPlatform();
@@ -109,25 +126,132 @@ public class Game3DRenderer {
     }
 
     /**
-     * Sync the Java3D view transform with the Camera object's position and orientation
+     * Called every frame with the elapsed time so zoom keys can update the radius.
+     * Pass deltaTime = 0 when calling outside the game loop.
      */
-    public void syncCamera() {
+    public void syncCamera(double deltaTime) {
+        // --- Zoom (I = closer, O = farther) ---
+        if (zoomKeys.contains(KeyEvent.VK_I))
+            camOrbitRadius = Math.max(CAM_MIN_RADIUS, camOrbitRadius - CAM_ZOOM_SPEED * deltaTime);
+        if (zoomKeys.contains(KeyEvent.VK_O))
+            camOrbitRadius = Math.min(CAM_MAX_RADIUS, camOrbitRadius + CAM_ZOOM_SPEED * deltaTime);
+
         Camera cam = world.getCamera();
+        double yaw   = cam.getYaw();
+        double pitch = cam.getPitch();
+        Vector3d lookAt = cam.getPosition(); // player eye / physics position
+
+        // Orbit camera: camera sits on a sphere of radius r around lookAt.
+        // Derivation — look direction D = (-sin(yaw)·cos(pitch), sin(pitch), -cos(yaw)·cos(pitch))
+        // Camera pos = lookAt - D·r  →  camXYZ below.
+        double sinY = Math.sin(yaw),  cosY = Math.cos(yaw);
+        double sinP = Math.sin(pitch), cosP = Math.cos(pitch);
+
+        double idealR = camOrbitRadius;
+        double idealX = lookAt.x + sinY * cosP * idealR;
+        double idealY = lookAt.y - sinP * idealR;
+        double idealZ = lookAt.z + cosY * cosP * idealR;
+
+        // Pull camera in if the ray to its ideal position is blocked
+        double r = idealR * occlusionT(lookAt, idealX, idealY, idealZ);
+
+        double camX = lookAt.x + sinY * cosP * r;
+        double camY = lookAt.y - sinP * r;
+        double camZ = lookAt.z + cosY * cosP * r;
+
         Transform3D transform = new Transform3D();
-        Transform3D rotation = new Transform3D();
-        
-        // Apply pitch (around X) then yaw (around Y)
-        transform.rotX(cam.getPitch());
-        rotation.rotY(cam.getYaw());
+        Transform3D rotation  = new Transform3D();
+
+        // RotY(yaw) * RotX(pitch) — camera faces the player
+        transform.rotX(pitch);
+        rotation.rotY(yaw);
         transform.mul(rotation, transform);
-        
-        // Apply position
-        transform.setTranslation(cam.getPosition());
-        
-        // Java3D ViewPlatform transform is inverse of camera transform
-        // But usually we set it directly as the "eye" transform.
-        // If we use lookAt, we invert it. If we use rot/trans, it IS the eye's transform.
+
+        transform.setTranslation(new Vector3d(camX, camY, camZ));
         viewTransformGroup.setTransform(transform);
+    }
+
+    /** Convenience overload for calls outside the game loop (e.g. initial setup). */
+    public void syncCamera() { syncCamera(0); }
+
+    /**
+     * Casts a ray from {@code from} toward the ideal camera position and returns
+     * the largest t ∈ (0, 1] such that the camera at {@code from + t*(ideal-from)}
+     * is not inside terrain or any collidable AABB.  Returns 1.0 if nothing blocks.
+     *
+     * A small margin is subtracted so the camera sits just in front of surfaces.
+     */
+    private double occlusionT(Vector3d from, double idealX, double idealY, double idealZ) {
+        double dx = idealX - from.x;
+        double dy = idealY - from.y;
+        double dz = idealZ - from.z;
+        double minT = 1.0;
+
+        // --- Terrain check: step along the ray, find first sample below ground ---
+        TerrainHeightProvider terrain = world.getTerrainProvider();
+        if (terrain != null) {
+            int steps = 12;
+            for (int i = 1; i <= steps; i++) {
+                double t  = (double) i / steps;
+                double px = from.x + dx * t;
+                double py = from.y + dy * t;
+                double pz = from.z + dz * t;
+                if (py < terrain.getHeightAt((float) px, (float) pz)) {
+                    minT = Math.min(minT, Math.max(0.05, t - 1.0 / steps));
+                    break;
+                }
+            }
+        }
+
+        // --- AABB check: slab ray–box intersection for each collidable object ---
+        for (BaseObject obj : world.getObjects()) {
+            AABB box = obj.getWorldAABB();
+            if (box == null) continue;
+
+            double tEnter = 0.05; // ignore hits very close to the player
+            double tExit  = minT;
+
+            // X slab
+            if (Math.abs(dx) < 1e-9) {
+                if (from.x < box.minX || from.x > box.maxX) continue;
+            } else {
+                double t1 = (box.minX - from.x) / dx;
+                double t2 = (box.maxX - from.x) / dx;
+                if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+                tEnter = Math.max(tEnter, t1);
+                tExit  = Math.min(tExit,  t2);
+                if (tEnter > tExit) continue;
+            }
+
+            // Y slab
+            if (Math.abs(dy) < 1e-9) {
+                if (from.y < box.minY || from.y > box.maxY) continue;
+            } else {
+                double t1 = (box.minY - from.y) / dy;
+                double t2 = (box.maxY - from.y) / dy;
+                if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+                tEnter = Math.max(tEnter, t1);
+                tExit  = Math.min(tExit,  t2);
+                if (tEnter > tExit) continue;
+            }
+
+            // Z slab
+            if (Math.abs(dz) < 1e-9) {
+                if (from.z < box.minZ || from.z > box.maxZ) continue;
+            } else {
+                double t1 = (box.minZ - from.z) / dz;
+                double t2 = (box.maxZ - from.z) / dz;
+                if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+                tEnter = Math.max(tEnter, t1);
+                tExit  = Math.min(tExit,  t2);
+                if (tEnter > tExit) continue;
+            }
+
+            // Ray hits this box before the current closest obstruction
+            minT = Math.min(minT, Math.max(0.05, tEnter - 0.02));
+        }
+
+        return minT;
     }
 
     /**
@@ -140,7 +264,15 @@ public class Game3DRenderer {
 
         BranchGroup sceneBG = world.getSceneBranchGroup();
         sceneBG.addChild(background);
-        
+
+        // Fog: fades geometry to sky color over the back half of the render distance
+        fog = new LinearFog(world.getBackgroundColor(),
+                            renderDistance * 0.5, renderDistance);
+        fog.setCapability(LinearFog.ALLOW_COLOR_WRITE);
+        fog.setCapability(LinearFog.ALLOW_DISTANCE_WRITE);
+        fog.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), Double.MAX_VALUE));
+        sceneBG.addChild(fog);
+
         // Add world update behavior and pass renderer for camera sync
         WorldUpdateBehavior behavior = new WorldUpdateBehavior(world, this);
         sceneBG.addChild(behavior);
@@ -163,13 +295,17 @@ public class Game3DRenderer {
         syncCamera();
     }
 
-    public void updateHud(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed) {
-        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed);
+    public void updateHud(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
+        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying);
     }
 
     public void setRenderDistance(double distance) {
         renderDistance = distance;
         universe.getViewer().getView().setBackClipDistance(renderDistance);
+        if (fog != null) {
+            fog.setFrontDistance(renderDistance * 0.5);
+            fog.setBackDistance(renderDistance);
+        }
     }
 
     /**
@@ -201,7 +337,26 @@ public class Game3DRenderer {
         String[] parts = text.trim().split("\\s+", 2);
         String cmd = parts[0].toLowerCase();
 
-        if (cmd.equals("fov") && parts.length == 2) {
+        if (cmd.equals("fly")) {
+            boolean nowFlying = !world.getPlayer().getPhysics().isFlying();
+            world.getPlayer().getPhysics().setFlying(nowFlying);
+            hud.logOutput("Flight " + (nowFlying ? "ON  (Space=up, Shift=down)" : "OFF"));
+
+        } else if (cmd.equals("fog") && parts.length == 2) {
+            String arg = parts[1].trim().toLowerCase();
+            if (arg.equals("on")) {
+                fog.setFrontDistance(renderDistance * 0.5);
+                fog.setBackDistance(renderDistance);
+                hud.logOutput("Fog on.");
+            } else if (arg.equals("off")) {
+                fog.setFrontDistance(1e10);
+                fog.setBackDistance(1e10);
+                hud.logOutput("Fog off.");
+            } else {
+                hud.logOutput("Usage: fog on|off");
+            }
+
+        } else if (cmd.equals("fov") && parts.length == 2) {
             try {
                 double degrees = Double.parseDouble(parts[1]);
                 degrees = Math.max(10.0, Math.min(170.0, degrees));
@@ -258,6 +413,8 @@ public class Game3DRenderer {
             }
 
         } else if (cmd.equals("cmds") || cmd.equals("help")) {
+            hud.logOutput("fly                     - Toggle flight (Space=up, Shift=down)");
+            hud.logOutput("fog on|off              - Toggle distance fog");
             hud.logOutput("fov <degrees>           - Set field of view (10-170)");
             hud.logOutput("rdist <distance>        - Set render distance");
             hud.logOutput("genmap [key=val ...]    - Regenerate mesh terrain");
@@ -423,7 +580,7 @@ public class Game3DRenderer {
         // Default spawn position: 3 units in front of player at foot level
         Camera cam = world.getCamera();
         double defaultX = cam.getPosition().x + Math.sin(cam.getYaw()) * 3.0;
-        double defaultY = cam.getPosition().y - physics.PlayerPhysics.EYE_HEIGHT;
+        double defaultY = cam.getPosition().y - entity.EntityPhysics.EYE_HEIGHT;
         double defaultZ = cam.getPosition().z - Math.cos(cam.getYaw()) * 3.0;
 
         Map<String, String> kv = parseKVTokens(hud, tokens, 1);

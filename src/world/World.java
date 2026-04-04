@@ -1,8 +1,10 @@
 package world;
 
+import entity.Entity;
+import entity.Player;
 import objects.BaseObject;
+import objects.MeshObject;
 import physics.AABB;
-import physics.PlayerPhysics;
 import physics.TerrainHeightProvider;
 import terrain.WaterHandlerLegacy;
 
@@ -12,33 +14,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class World {
-    private List<BaseObject> objects;
-    private BranchGroup sceneBranchGroup;
+    private final List<BaseObject> objects  = new ArrayList<>();
+    private final List<Entity>     entities = new ArrayList<>();
+
+    private final BranchGroup sceneBranchGroup;
     private Color3f backgroundColor;
-    private Lighting lighting;
-    private Camera camera;
+    private final Lighting lighting;
+    private final Player player;
     private WaterHandlerLegacy waterHandlerLegacy;
-    private PlayerPhysics playerPhysics;
     private boolean hitboxesVisible = false;
     private int seed = 0;
 
     public World() {
-        this.objects = new ArrayList<>();
         this.sceneBranchGroup = new BranchGroup();
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_EXTEND);
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_WRITE);
         this.backgroundColor = new Color3f(0.8f, 0.8f, 0.9f);
-        this.camera = new Camera();
+        this.player  = new Player();
         this.lighting = new Lighting();
-        this.playerPhysics = new PlayerPhysics();
     }
 
-    public Lighting getLighting() { return lighting; }
+    // ------------------------------------------------------------------
+    // Objects (static scene geometry)
+    // ------------------------------------------------------------------
 
     public void addObject(BaseObject object) {
         objects.add(object);
         sceneBranchGroup.addChild(object.getBranchGroup());
-        // Apply the current hitbox visibility to the newly added object
         object.setHitboxVisible(hitboxesVisible);
     }
 
@@ -51,14 +53,69 @@ public class World {
         for (BaseObject obj : objects) obj.detachFromScene();
         objects.clear();
         waterHandlerLegacy = null;
-        playerPhysics.setTerrainProvider(null);
+        player.setTerrainProvider(null);
+        for (Entity e : entities) e.setTerrainProvider(null);
     }
+
+    public List<BaseObject> getObjects() {
+        return new ArrayList<>(objects);
+    }
+
+    // ------------------------------------------------------------------
+    // Entities (moving actors)
+    // ------------------------------------------------------------------
+
+    /**
+     * Adds an entity to the world.  If the entity has a model, it is also
+     * added to the scene as a renderable object.
+     */
+    public void addEntity(Entity entity) {
+        entities.add(entity);
+        if (entity.getModel() != null) {
+            addObject(entity.getModel());
+        }
+        entity.setTerrainProvider(player.getPhysics().getTerrainProvider());
+    }
+
+    public List<Entity> getEntities() {
+        return new ArrayList<>(entities);
+    }
+
+    // ------------------------------------------------------------------
+    // Player
+    // ------------------------------------------------------------------
+
+    public Player  getPlayer() { return player; }
+    public Camera  getCamera() { return player.getCamera(); }
+
+    /**
+     * Loads an OBJ model and attaches it as the player's visible body.
+     * The model is non-collidable and added to the scene graph.
+     */
+    public void setPlayerModel(String modelPath) {
+        MeshObject model = new MeshObject(modelPath);
+        model.setCollidable(false);
+        player.setModel(model);
+        addObject(model);
+    }
+
+    // ------------------------------------------------------------------
+    // Terrain
+    // ------------------------------------------------------------------
 
     public void setTerrainProvider(TerrainHeightProvider provider) {
-        playerPhysics.setTerrainProvider(provider);
+        player.setTerrainProvider(provider);
+        for (Entity e : entities) e.setTerrainProvider(provider);
     }
 
-    /** Toggle yellow wireframe hitboxes on all current and future objects. */
+    public TerrainHeightProvider getTerrainProvider() {
+        return player.getPhysics().getTerrainProvider();
+    }
+
+    // ------------------------------------------------------------------
+    // Hitboxes
+    // ------------------------------------------------------------------
+
     public void setHitboxVisible(boolean visible) {
         hitboxesVisible = visible;
         for (BaseObject obj : objects) obj.setHitboxVisible(visible);
@@ -66,29 +123,44 @@ public class World {
 
     public boolean isHitboxVisible() { return hitboxesVisible; }
 
+    // ------------------------------------------------------------------
+    // Misc
+    // ------------------------------------------------------------------
+
     public void setWaterHandler(WaterHandlerLegacy wh) { this.waterHandlerLegacy = wh; }
-    public int  getSeed()              { return seed; }
-    public void setSeed(int seed)      { this.seed = seed; }
-    public PlayerPhysics getPlayerPhysics() { return playerPhysics; }
+    public int  getSeed()          { return seed; }
+    public void setSeed(int seed)  { this.seed = seed; }
+    public Lighting getLighting()  { return lighting; }
+
+    // ------------------------------------------------------------------
+    // Update
+    // ------------------------------------------------------------------
 
     public void update(double deltaTime) {
-        camera.update(deltaTime);
-
-        // Collect world-space AABBs of all collidable objects
+        // Collect collidable AABBs from static objects
         List<AABB> collidables = new ArrayList<>();
         for (BaseObject obj : objects) {
             AABB a = obj.getWorldAABB();
             if (a != null) collidables.add(a);
         }
 
-        playerPhysics.update(deltaTime, camera.getPosition(),
-                             camera.consumeJumpRequest(), collidables);
+        // Update player (input → movement → physics → model sync)
+        player.update(deltaTime, collidables);
 
+        // Update all other entities
+        for (Entity e : new ArrayList<>(entities)) {
+            e.update(deltaTime, collidables);
+        }
+
+        // Animate static objects
         for (BaseObject obj : new ArrayList<>(objects)) obj.update(deltaTime);
+
         if (waterHandlerLegacy != null) waterHandlerLegacy.update(deltaTime);
     }
 
-    public Camera getCamera() { return camera; }
+    // ------------------------------------------------------------------
+    // Scene graph
+    // ------------------------------------------------------------------
 
     public BranchGroup getSceneBranchGroup() {
         if (sceneBranchGroup.numChildren() == objects.size()) {
@@ -101,10 +173,6 @@ public class World {
 
     public void setBackgroundColor(Color3f backgroundColor) {
         this.backgroundColor = backgroundColor;
-    }
-
-    public List<BaseObject> getObjects() {
-        return new ArrayList<>(objects);
     }
 
     public int getTotalPolygonCount() {

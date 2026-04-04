@@ -13,12 +13,12 @@ import javax.vecmath.*;
 public class TerrainMesh extends BaseObject {
 
     private final float[] heights;   // row-major: heights[r * cols + c]
-    private final Color3f[] colors;  // matching per-vertex colors
+    private final Color4f[] colors;  // per-vertex color; alpha channel carries the blend-weight t
     private final int rows;
     private final int cols;
     private final float cellSize;    // spacing between vertices in X and Z
 
-    public TerrainMesh(float[] heights, Color3f[] colors, int rows, int cols, float cellSize) {
+    public TerrainMesh(float[] heights, Color4f[] colors, int rows, int cols, float cellSize) {
         super();
         this.heights  = heights;
         this.colors   = colors;
@@ -70,17 +70,30 @@ public class TerrainMesh extends BaseObject {
             }
         }
 
+        // Compute tiled UV coordinates from world X/Z position
+        final float texTileSize = 4.0f; // one texture repeat every 4 world units
+        TexCoord2f[] texCoords = new TexCoord2f[vertCount];
+        for (int i = 0; i < vertCount; i++) {
+            texCoords[i] = new TexCoord2f(
+                    positions[i].x / texTileSize,
+                    positions[i].z / texTileSize
+            );
+        }
+
         IndexedTriangleArray geom = new IndexedTriangleArray(
                 vertCount,
-                GeometryArray.COORDINATES | GeometryArray.NORMALS | GeometryArray.COLOR_3,
+                GeometryArray.COORDINATES | GeometryArray.NORMALS | GeometryArray.COLOR_4
+                        | GeometryArray.TEXTURE_COORDINATE_2,
                 indexCount
         );
         geom.setCoordinates(0, positions);
         geom.setNormals(0, normals);
         geom.setColors(0, colors);
+        geom.setTextureCoordinates(0, 0, texCoords);
         geom.setCoordinateIndices(0, indices);
         geom.setNormalIndices(0, indices);
         geom.setColorIndices(0, indices);
+        geom.setTextureCoordinateIndices(0, 0, indices);
 
         return new Shape3D(geom);
     }

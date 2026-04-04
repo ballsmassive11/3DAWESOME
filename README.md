@@ -8,7 +8,8 @@ A Java3D-based 3D world renderer with procedurally generated organic terrain, an
 - **Animated water** — transparent water plane with sinusoidal bobbing; seabed sand slopes down from the shoreline
 - **Height-based terrain coloring** — sand → grass → forest green → rocky gray → snow peaks
 - **OBJ model loading** — supports MTL materials and PBR texture maps (diffuse, metallic, roughness, normal, AO)
-- **First-person flying camera** — WASD movement, arrow key rotation, quaternion-based (no gimbal lock)
+- **First-person camera with physics** — WASD movement, arrow key rotation, gravity, jumping, slope limiting, and step-up; toggle flight mode to freely ascend/descend
+- **Distance fog** — geometry fades into the sky color over the back half of the render distance, eliminating hard pop-in at the clip plane
 - **HUD overlay** — real-time FPS, camera position/orientation, scene object count, and total triangle count
 - **Object spawner** — top-left panel lists all models in `src/resources/`; click to spawn in front of the camera
 - **In-game command console** — press `T` to open a text input bar; submit commands to change settings at runtime; history panel shows previous commands and responses
@@ -21,12 +22,12 @@ A Java3D-based 3D world renderer with procedurally generated organic terrain, an
 |-----|--------|
 | `W` / `S` | Move forward / backward |
 | `A` / `D` | Strafe left / right |
-| `Space` | Move up |
-| `Shift` | Move down |
+| `Space` | Jump (on ground) / ascend (flying) |
+| `Shift` | Descend (flying only) |
 | `←` / `→` | Yaw left / right |
 | `↑` / `↓` | Pitch up / down |
 | `T` | Open command console |
-| `Esc` | Quit (or close console) |
+| `Esc` | Quit |
 
 ### Command Console
 
@@ -34,11 +35,15 @@ Press `T` to open the input bar. Type a command and press `Enter` to submit, or 
 
 | Command               | Description                                                                              |
 |-----------------------|------------------------------------------------------------------------------------------|
+| `fly`                 | Toggle flight mode (Space = ascend, Shift = descend)                                     |
+| `fog on\|off`         | Toggle distance fog                                                                      |
 | `fov <degrees>`       | Set field of view (clamped 10–170°)                                                      |
-| `rdist <distance>`    | Set render distance                                                                      |
-| `genmap [key=value]`  | Regenerates map<br/>Params: seed size height threshold cellsize                          |
-| `genmapl [key=value]` | Regenrates map using legacy algorithm <br/>Params: seed size height threshold blockwidth |
-| `delmap`              | Deletes current map                                                                      |
+| `rdist <distance>`    | Set render distance (also adjusts fog distances)                                         |
+| `genmap [key=value]`  | Regenerate mesh terrain<br/>Params: `seed size height threshold cellsize`                |
+| `genmapl [key=value]` | Regenerate terrain (legacy brick mode)<br/>Params: `seed size height threshold blockwidth` |
+| `delmap`              | Delete the current terrain                                                               |
+| `hitbox on\|off`      | Toggle AABB wireframe hitboxes                                                           |
+| `spawn cube\|brick\|mesh [key=value]` | Spawn an object in front of the camera                               |
 | `fun`                 | dont start this                                                                          |
 | `help` / `cmds`       | List all commands                                                                        |
 
@@ -54,6 +59,7 @@ Displayed in the top-right corner each frame:
 | Objs | Total objects in the scene |
 | Tris | Total polygon (triangle) count |
 | Seed | World generation seed |
+| `** FLYING **` | Shown in blue when flight mode is active |
 
 ## Project Structure
 
@@ -107,3 +113,5 @@ Open in IntelliJ IDEA and run `main.Main`, or with Maven:
 ```bash
 mvn compile exec:java -Dexec.mainClass=main.Main
 ```
+
+thanks to ThinMatrix and his OpenGl 3D Tutorial Series, wouldnt have been possible without it

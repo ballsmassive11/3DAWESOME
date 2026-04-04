@@ -18,6 +18,9 @@ public class Main {
         System.out.println("creating the world object");
         World world = new World();
 
+        // Set the player's visible body model
+        world.setPlayerModel("src/resources/Suzanne/suzanne.obj");
+
         MapGenerator mapGen = new MapGenerator();
         //mapGen.setGeneratorToNoise();
         int seed = (int) System.currentTimeMillis();

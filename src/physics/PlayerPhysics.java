@@ -6,35 +6,36 @@ import java.util.List;
 /**
  * Vertical physics + AABB collision for the player.
  *
- * Slope behaviour:
- *   - If the player tries to walk UP a slope steeper than MAX_SLOPE, the
- *     horizontal move is cancelled (old behaviour, prevents the jump-exploit).
- *   - If the player is STANDING on a slope steeper than MAX_SLOPE, they enter
- *     a SLIDING state: they are pushed downhill at a speed proportional to the
- *     gradient, and onGround is false — so they cannot jump off the slope.
+ * Gravity pulls the player down each frame. The player is clamped to terrain
+ * (via TerrainHeightProvider) and resolved against all object AABBs.
  *
- * Object collision: minimum-separation-axis push-out with step-up support.
+ * Slope limiting: while grounded, horizontal moves that would climb steeper
+ * than MAX_SLOPE are cancelled.
+ *
+ * Object collision: uses the minimum-separation-axis approach.
+ *   - Horizontal MSA → wall push-out
+ *   - Vertical MSA   → land on top or ceiling bump
+ *   - Step-up        → object top within STEP_HEIGHT of player feet → auto-step
+ *
+ * The player shape is a true pillbox (capsule): a vertical cylinder of radius
+ * PLAYER_RADIUS capped with hemispheres, total height EYE_HEIGHT.
  */
 public class PlayerPhysics {
 
-    public static final float EYE_HEIGHT    = 1.7f;
+    public static final float EYE_HEIGHT   = 1.7f;
     public static final float PLAYER_RADIUS = 0.35f;
-    public static final float JUMP_SPEED    = 9.0f;
+    public static final float JUMP_SPEED   = 9.0f;
+    public static final float FLY_SPEED    = 8.0f;
 
-    private static final float GRAVITY              = -22.0f;
-    private static final float MAX_SLOPE            = (float) Math.tan(Math.toRadians(40.0));
-    private static final float STEP_HEIGHT          = 0.7f;
+    public static final Pillbox PLAYER_SHAPE = new Pillbox(PLAYER_RADIUS, EYE_HEIGHT);
 
-    /** Step size used when sampling the terrain gradient for sliding. */
-    private static final float GRADIENT_DELTA       = 0.5f;
-    /** Slide speed (units/s) per unit of gradient magnitude (tan of slope angle). */
-    private static final float SLIDE_SPEED_FACTOR   = 10.0f;
-    /** Hard cap on slide speed so very steep terrain doesn't fling the player. */
-    private static final float MAX_SLIDE_SPEED      = 20.0f;
+    private static final float GRAVITY     = -22.0f;
+    private static final float MAX_SLOPE   = (float) Math.tan(Math.toRadians(40.0));
+    private static final float STEP_HEIGHT = 0.7f;
 
     private float   velocityY = 0f;
     private boolean onGround  = false;
-    private boolean sliding   = false;
+    private boolean flying    = false;
 
     private float prevX = Float.NaN;
     private float prevZ = Float.NaN;
@@ -45,9 +46,12 @@ public class PlayerPhysics {
         this.terrainProvider = provider;
         velocityY = 0f;
         onGround  = false;
-        sliding   = false;
         prevX     = Float.NaN;
         prevZ     = Float.NaN;
+    }
+
+    public TerrainHeightProvider getTerrainProvider() {
+        return terrainProvider;
     }
 
     /**
@@ -57,13 +61,25 @@ public class PlayerPhysics {
      * @param position      Player eye position (modified in place).
      * @param jumpRequested True if the player pressed jump this frame.
      * @param objectAABBs   World-space AABBs of all collidable objects this frame.
+     * @param verticalInput +1 = ascend, -1 = descend, 0 = neutral (used when flying).
      */
     public void update(double deltaTime, Vector3d position, boolean jumpRequested,
-                       List<AABB> objectAABBs) {
+                       List<AABB> objectAABBs, float verticalInput) {
         float curX = (float) position.x;
         float curZ = (float) position.z;
 
-        // --- Uphill movement cancellation (prevents walking/jumping up steep slopes) ---
+        if (flying) {
+            // --- Fly mode: no gravity, no terrain clamping ---
+            position.y += FLY_SPEED * verticalInput * deltaTime;
+            velocityY   = 0f;
+            onGround    = false;
+            prevX = curX;
+            prevZ = curZ;
+            resolveObjectCollisions(position, objectAABBs);
+            return;
+        }
+
+        // --- Slope check (grounded only) ---
         if (onGround && !Float.isNaN(prevX)) {
             float dh = (float) Math.sqrt((curX - prevX) * (curX - prevX)
                                        + (curZ - prevZ) * (curZ - prevZ));
@@ -80,56 +96,25 @@ public class PlayerPhysics {
         prevX = curX;
         prevZ = curZ;
 
-        // --- Sample terrain gradient at current position ---
-        float h0  = queryGroundY(curX, curZ);
-        float hpx = queryGroundY(curX + GRADIENT_DELTA, curZ);
-        float hpz = queryGroundY(curX, curZ + GRADIENT_DELTA);
-        float gradX = (hpx - h0) / GRADIENT_DELTA;   // dY/dX
-        float gradZ = (hpz - h0) / GRADIENT_DELTA;   // dY/dZ
-        float gradMag = (float) Math.sqrt(gradX * gradX + gradZ * gradZ);
-
-        boolean onSteepTerrain = gradMag > MAX_SLOPE;
-
         // --- Vertical physics ---
-        float eyeFloor = h0 + EYE_HEIGHT;
+        float terrainY  = queryGroundY(curX, curZ);
+        float eyeFloor  = terrainY + EYE_HEIGHT;   // lowest Y allowed by terrain
 
-        // Jump only when truly grounded (not sliding)
         if (jumpRequested && onGround) {
             velocityY = JUMP_SPEED;
             onGround  = false;
-            sliding   = false;
         }
 
-        velocityY  += (float) (GRAVITY * deltaTime);
-        position.y += velocityY * deltaTime;
+        velocityY      += (float) (GRAVITY * deltaTime);
+        position.y     += velocityY * deltaTime;
 
         // Terrain ground clamp
         if (position.y <= eyeFloor) {
             position.y = eyeFloor;
             velocityY  = 0f;
-
-            if (onSteepTerrain) {
-                // Sliding state: player is on the slope surface but cannot jump
-                sliding  = true;
-                onGround = false;
-
-                // Push player downhill (opposite of gradient direction)
-                float speed = Math.min(gradMag * SLIDE_SPEED_FACTOR, MAX_SLIDE_SPEED);
-                position.x -= (gradX / gradMag) * speed * deltaTime;
-                position.z -= (gradZ / gradMag) * speed * deltaTime;
-
-                // Update prevX/prevZ so the uphill-cancellation check next frame
-                // doesn't fight the slide direction.
-                prevX = (float) position.x;
-                prevZ = (float) position.z;
-            } else {
-                // Flat enough: normal grounded state
-                sliding  = false;
-                onGround = true;
-            }
+            onGround   = true;
         } else {
             onGround = false;
-            sliding  = false;
         }
 
         // --- Object AABB collision ---
@@ -139,55 +124,104 @@ public class PlayerPhysics {
     // ------------------------------------------------------------------
 
     private void resolveObjectCollisions(Vector3d position, List<AABB> objects) {
-        float px = (float) position.x;
-        float pz = (float) position.z;
+        float cx = (float) position.x;
+        float cz = (float) position.z;
 
         for (AABB obj : objects) {
-            float eyeY  = (float) position.y;
-            float feetY = eyeY - EYE_HEIGHT;
+            float eyeY    = (float) position.y;
+            float feetY   = eyeY - EYE_HEIGHT;
+            float spineBot = PLAYER_SHAPE.spineBot(feetY);
+            float spineTop = PLAYER_SHAPE.spineTop(feetY);
 
-            if (px + PLAYER_RADIUS <= obj.minX || px - PLAYER_RADIUS >= obj.maxX) continue;
-            if (pz + PLAYER_RADIUS <= obj.minZ || pz - PLAYER_RADIUS >= obj.maxZ) continue;
+            // --- Circle XZ test: closest point on AABB to the capsule axis ---
+            float closestX = clamp(cx, obj.minX, obj.maxX);
+            float closestZ = clamp(cz, obj.minZ, obj.maxZ);
+            float dx = cx - closestX;
+            float dz = cz - closestZ;
+            float dxzSq = dx * dx + dz * dz;
+            if (dxzSq >= PLAYER_RADIUS * PLAYER_RADIUS) continue; // XZ circle miss
+
+            // Full capsule Y extent quick-reject
             if (feetY >= obj.maxY || eyeY <= obj.minY) continue;
 
-            // Step-up
+            // Step-up: object top is within step height of player feet
             float objTop = obj.maxY;
             if (objTop > feetY && objTop - feetY <= STEP_HEIGHT) {
                 position.y = objTop + EYE_HEIGHT;
-                if (velocityY < 0f) { velocityY = 0f; onGround = true; sliding = false; }
+                if (velocityY < 0f) { velocityY = 0f; onGround = true; }
                 continue;
             }
 
-            float overlapX = Math.min(px + PLAYER_RADIUS, obj.maxX)
-                           - Math.max(px - PLAYER_RADIUS, obj.minX);
-            float overlapY = Math.min(eyeY, obj.maxY) - Math.max(feetY, obj.minY);
-            float overlapZ = Math.min(pz + PLAYER_RADIUS, obj.maxZ)
-                           - Math.max(pz - PLAYER_RADIUS, obj.minZ);
+            // --- Closest points between capsule spine and AABB in Y ---
+            // After the step-up check, objTop > feetY + STEP_HEIGHT.
+            float dy;
+            if (obj.minY >= spineTop) {
+                // AABB is entirely above the spine → top hemisphere contact
+                dy = spineTop - obj.minY; // negative: spine is below AABB
+            } else if (obj.maxY <= spineBot) {
+                // AABB is entirely below the spine → bottom hemisphere contact
+                // (only reachable if STEP_HEIGHT < PLAYER_RADIUS, kept for correctness)
+                dy = spineBot - obj.maxY; // positive: spine is above AABB
+            } else {
+                // Spine and AABB Y ranges overlap → cylindrical body contact
+                dy = 0f;
+            }
 
-            if (overlapY < overlapX && overlapY < overlapZ) {
-                if (feetY > obj.centerY()) {
-                    position.y = obj.maxY + EYE_HEIGHT;
-                    if (velocityY < 0f) { velocityY = 0f; onGround = true; sliding = false; }
+            // Full distance from spine point to AABB closest point
+            float distSq = dxzSq + dy * dy;
+            if (distSq >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
+
+            float dist = (float) Math.sqrt(distSq);
+            if (dist < 1e-5f) { position.x += PLAYER_RADIUS; cx = (float) position.x; continue; }
+
+            float penetration = PLAYER_RADIUS - dist;
+
+            if (dy == 0f) {
+                // Cylindrical contact: push the player out horizontally only.
+                // This lets the player slide smoothly around AABB corners.
+                float dxzLen = (float) Math.sqrt(dxzSq);
+                if (dxzLen < 1e-5f) {
+                    position.x += penetration;
                 } else {
+                    position.x += dx / dxzLen * penetration;
+                    position.z += dz / dxzLen * penetration;
+                }
+            } else {
+                // Hemisphere contact: push in 3D along the spine→AABB vector.
+                float invDist = 1f / dist;
+                position.x += dx * invDist * penetration;
+                position.z += dz * invDist * penetration;
+                float pushY = dy * invDist * penetration;
+                position.y += pushY;
+                if (dy > 0f) {
+                    // Bottom hemisphere hit object above → land on top
+                    if (velocityY < 0f) { velocityY = 0f; onGround = true; }
+                } else {
+                    // Top hemisphere hit object below → ceiling bump
                     if (velocityY > 0f) velocityY = 0f;
                 }
-            } else if (overlapX <= overlapZ) {
-                float dir = px < obj.centerX() ? -1f : 1f;
-                position.x += dir * overlapX;
-                px = (float) position.x;
-            } else {
-                float dir = pz < obj.centerZ() ? -1f : 1f;
-                position.z += dir * overlapZ;
-                pz = (float) position.z;
             }
+
+            cx = (float) position.x;
+            cz = (float) position.z;
         }
+    }
+
+    private static float clamp(float v, float lo, float hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
     }
 
     private float queryGroundY(float x, float z) {
         return terrainProvider != null ? terrainProvider.getHeightAt(x, z) : 0f;
     }
 
-    public boolean isOnGround() { return onGround; }
-    public boolean isSliding()  { return sliding;  }
+    public boolean isOnGround()   { return onGround; }
     public float   getVelocityY() { return velocityY; }
+    public boolean isFlying()     { return flying; }
+
+    public void setFlying(boolean flying) {
+        this.flying  = flying;
+        this.velocityY = 0f;
+        this.onGround  = false;
+    }
 }

@@ -48,7 +48,7 @@ public class WorldUpdateBehavior extends Behavior {
         world.update(deltaTime);
 
         if (renderer != null) {
-            renderer.syncCamera();
+            renderer.syncCamera(deltaTime);
             double fps = deltaTime > 0 ? 1.0 / deltaTime : 0;
             Camera cam = world.getCamera();
             renderer.updateHud(fps,
@@ -56,7 +56,8 @@ public class WorldUpdateBehavior extends Behavior {
                     cam.getYaw(), cam.getPitch(),
                     world.getObjects().size(),
                     world.getTotalPolygonCount(),
-                    world.getSeed());
+                    world.getSeed(),
+                    world.getPlayer().getPhysics().isFlying());
         }
         
         wakeupOn(wakeup);

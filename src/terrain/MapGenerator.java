@@ -6,8 +6,12 @@ import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
 import world.World;
 
+import com.sun.j3d.utils.image.TextureLoader;
 import javax.media.j3d.*;
 import javax.vecmath.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * Generates a continuous terrain mesh by displacing vertices of a flat grid
@@ -15,9 +19,13 @@ import javax.vecmath.*;
  * <p>
  * Unlike the legacy brick-based generator, the ground here is a single
  * triangulated surface — like a sheet of paper that rises and falls.
- * Per-vertex colours carry the height gradient (sand → grass → rock → snow).
+ * Each biome zone (sand, grass, rock, snow) is textured via a GLSL shader
+ * that blends the four textures based on the per-vertex height gradient t,
+ * stored in the alpha channel of the vertex colour.
  */
 public class MapGenerator implements TerrainHeightProvider {
+
+    private static final String SHADER_DIR = "src/terrain/terrainshaders/";
 
     private final FastNoiseLite noise;
     private final FastNoiseLite warpNoise;
@@ -57,7 +65,7 @@ public class MapGenerator implements TerrainHeightProvider {
         int rows = cols;
 
         float[]   heights = new float[rows * cols];
-        Color3f[] colors  = new Color3f[rows * cols];
+        Color4f[] colors  = new Color4f[rows * cols]; // alpha = blend weight t
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
@@ -70,40 +78,33 @@ public class MapGenerator implements TerrainHeightProvider {
 
                 float noiseVal = noise.GetNoise(coord.x, coord.y); // [-1, 1]
 
-                float   height;
-                Color3f diffuse;
+                float height;
+                float blendT;
 
                 if (noiseVal < threshold) {
-                    // Sub-water: sand slopes gently downward from shore
+                    // Sub-water: sand slopes gently downward from shore; t=0 → sand texture
                     float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
-                    height  = -(float) Math.pow(depth, 1.5) * 4.0f;
-                    diffuse = lerp(new Color3f(0.75f, 0.68f, 0.42f),
-                                   new Color3f(0.30f, 0.26f, 0.10f), depth);
+                    height = -(float) Math.pow(depth, 1.5) * 4.0f;
+                    blendT = 0.0f;
                 } else {
                     // Above water: t=0 is shore, t=1 is peak
-                    float t = (noiseVal - threshold) / (1.0f - threshold);
-                    height  = (float) Math.pow(t, 2.5) * heightScale;
-                    diffuse = terrainColor(t);
+                    blendT = (noiseVal - threshold) / (1.0f - threshold);
+                    height = (float) Math.pow(blendT, 2.5) * heightScale;
                 }
 
                 heights[r * cols + c] = height;
-                colors [r * cols + c] = diffuse;
+                // RGB not used by the shader; store as neutral white so a fallback fixed-function
+                // pass would still look reasonable.
+                colors [r * cols + c] = new Color4f(1.0f, 1.0f, 1.0f, blendT);
             }
         }
 
-        // Build the terrain mesh and configure its appearance
+        // Build the terrain mesh
         TerrainMesh terrain = new TerrainMesh(heights, colors, rows, cols, cellSize);
         terrain.setPosition(0, 0, zOffset);
 
-        Appearance terrainApp = terrain.getAppearance();
-        Material   terrainMat = new Material();
-        terrainMat.setLightingEnable(true);
-        // Vertex colours provide the diffuse contribution; keep ambient dim
-        terrainMat.setAmbientColor (new Color3f(0.25f, 0.25f, 0.25f));
-        terrainMat.setDiffuseColor (new Color3f(1.0f,  1.0f,  1.0f));   // overridden by vertex colour
-        terrainMat.setSpecularColor(new Color3f(0.08f, 0.08f, 0.08f));
-        terrainMat.setShininess(18f);
-        terrainApp.setMaterial(terrainMat);
+        // Build the shader appearance
+        ShaderAppearance terrainApp = buildTerrainAppearance();
         terrain.setAppearance(terrainApp);
 
         world.addObject(terrain);
@@ -128,6 +129,74 @@ public class MapGenerator implements TerrainHeightProvider {
         world.setWaterHandler(new WaterHandlerLegacy(water, -40.1f));
 
         world.setTerrainProvider(this);
+    }
+
+    // ------------------------------------------------------------------
+    // Shader appearance builder
+    // ------------------------------------------------------------------
+
+    private ShaderAppearance buildTerrainAppearance() {
+        ShaderAppearance app = new ShaderAppearance();
+
+        // Material properties — fed into gl_FrontMaterial in the GLSL vertex shader
+        Material mat = new Material();
+        mat.setLightingEnable(true);
+        mat.setAmbientColor (new Color3f(0.25f, 0.25f, 0.25f));
+        mat.setDiffuseColor (new Color3f(1.0f,  1.0f,  1.0f));
+        mat.setSpecularColor(new Color3f(0.08f, 0.08f, 0.08f));
+        mat.setShininess(18f);
+        app.setMaterial(mat);
+
+        // Load the four biome textures into texture units 0-3
+        String[] texPaths = {
+            SHADER_DIR + "sand.jpg",
+            SHADER_DIR + "grass.jpg",
+            SHADER_DIR + "rock.jpg",
+            SHADER_DIR + "snow.jpg"
+        };
+        TextureUnitState[] tus = new TextureUnitState[texPaths.length];
+        for (int i = 0; i < texPaths.length; i++) {
+            tus[i] = new TextureUnitState();
+            TextureLoader tl = new TextureLoader(texPaths[i], null);
+            Texture2D tex = (Texture2D) tl.getTexture();
+            if (tex != null) {
+                tex.setBoundaryModeS(Texture.WRAP);
+                tex.setBoundaryModeT(Texture.WRAP);
+                tus[i].setTexture(tex);
+            } else {
+                System.err.println("Warning: could not load terrain texture: " + texPaths[i]);
+            }
+        }
+        app.setTextureUnitState(tus);
+
+        // Load and compile the GLSL shader program
+        try {
+            String vertSrc = new String(Files.readAllBytes(Paths.get(SHADER_DIR + "terrain.vert")));
+            String fragSrc = new String(Files.readAllBytes(Paths.get(SHADER_DIR + "terrain.frag")));
+
+            SourceCodeShader vs = new SourceCodeShader(
+                    Shader.SHADING_LANGUAGE_GLSL, Shader.SHADER_TYPE_VERTEX,   vertSrc);
+            SourceCodeShader fs = new SourceCodeShader(
+                    Shader.SHADING_LANGUAGE_GLSL, Shader.SHADER_TYPE_FRAGMENT, fragSrc);
+
+            GLSLShaderProgram program = new GLSLShaderProgram();
+            program.setShaders(new Shader[] { vs, fs });
+            program.setShaderAttrNames(new String[] { "sandTex", "grassTex", "rockTex", "snowTex" });
+            app.setShaderProgram(program);
+
+            // Bind sampler uniforms to their texture unit indices
+            ShaderAttributeSet attrs = new ShaderAttributeSet();
+            attrs.put(new ShaderAttributeValue("sandTex",  new Integer(0)));
+            attrs.put(new ShaderAttributeValue("grassTex", new Integer(1)));
+            attrs.put(new ShaderAttributeValue("rockTex",  new Integer(2)));
+            attrs.put(new ShaderAttributeValue("snowTex",  new Integer(3)));
+            app.setShaderAttributeSet(attrs);
+
+        } catch (IOException e) {
+            System.err.println("Could not load terrain shaders: " + e.getMessage());
+        }
+
+        return app;
     }
 
     // ------------------------------------------------------------------
@@ -156,36 +225,6 @@ public class MapGenerator implements TerrainHeightProvider {
             float t = (noiseVal - threshold) / (1.0f - threshold);
             return (float) Math.pow(t, 2.5) * heightScale;
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Colour gradient helpers
-    // ------------------------------------------------------------------
-
-    /** Height-based colour: sand → grass → forest → rock → snow */
-    private Color3f terrainColor(float t) {
-        if (t < 0.12f) {
-            return lerp(new Color3f(0.78f, 0.71f, 0.44f),
-                        new Color3f(0.55f, 0.76f, 0.28f), t / 0.12f);
-        } else if (t < 0.50f) {
-            return lerp(new Color3f(0.55f, 0.76f, 0.28f),
-                        new Color3f(0.18f, 0.50f, 0.12f), (t - 0.12f) / 0.38f);
-        } else if (t < 0.78f) {
-            return lerp(new Color3f(0.18f, 0.50f, 0.12f),
-                        new Color3f(0.54f, 0.41f, 0.36f), (t - 0.50f) / 0.28f);
-        } else {
-            float blend = Math.min((t - 0.78f) / 0.22f, 1.0f);
-            return lerp(new Color3f(0.44f, 0.41f, 0.36f),
-                        new Color3f(0.82f, 0.82f, 0.85f), blend);
-        }
-    }
-
-    private static Color3f lerp(Color3f a, Color3f b, float t) {
-        return new Color3f(
-                a.x + (b.x - a.x) * t,
-                a.y + (b.y - a.y) * t,
-                a.z + (b.z - a.z) * t
-        );
     }
 
     // ------------------------------------------------------------------
