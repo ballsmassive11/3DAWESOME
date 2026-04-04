@@ -2,6 +2,7 @@ package renderer;
 
 import hud.CommandHud;
 import hud.HudCanvas;
+import renderer.skybox.Skybox;
 import objects.BaseObject;
 import objects.Brick;
 import objects.Cube;
@@ -35,8 +36,9 @@ public class Game3DRenderer {
     private ViewingPlatform viewingPlatform;
     private TransformGroup viewTransformGroup;
     private double fov = Math.PI / 3.0; // 60 degrees default
-    private double renderDistance = 10.0;
+    private double renderDistance = 70.0;
     private LinearFog fog;
+    private Skybox skybox;
 
     // 3rd-person orbit camera
     private double camOrbitRadius = 5.0;
@@ -130,6 +132,7 @@ public class Game3DRenderer {
      * Pass deltaTime = 0 when calling outside the game loop.
      */
     public void syncCamera(double deltaTime) {
+        syncSkybox();
         // --- Zoom (I = closer, O = farther) ---
         if (zoomKeys.contains(KeyEvent.VK_I))
             camOrbitRadius = Math.max(CAM_MIN_RADIUS, camOrbitRadius - CAM_ZOOM_SPEED * deltaTime);
@@ -259,14 +262,14 @@ public class Game3DRenderer {
      */
     private void setupScene() {
         // Create background
-        Background background = new Background(world.getBackgroundColor());
-        background.setApplicationBounds(new BoundingSphere(new Point3d(0, 0, 0), 100.0));
+        skybox = new Skybox("/resources/skyboxes/cloudy_sky", "png");
+        Background background = skybox.getBackground();
 
         BranchGroup sceneBG = world.getSceneBranchGroup();
         sceneBG.addChild(background);
 
         // Fog: fades geometry to sky color over the back half of the render distance
-        fog = new LinearFog(world.getBackgroundColor(),
+        fog = new LinearFog(new Color3f(0.5f, 0.6f, 0.7f),
                             renderDistance * 0.5, renderDistance);
         fog.setCapability(LinearFog.ALLOW_COLOR_WRITE);
         fog.setCapability(LinearFog.ALLOW_DISTANCE_WRITE);
@@ -282,6 +285,13 @@ public class Game3DRenderer {
 
         // Add to universe
         universe.addBranchGraph(sceneBG);
+    }
+
+    private void syncSkybox() {
+        if (skybox != null) {
+            Vector3d pos = world.getCamera().getPosition();
+            skybox.getBackground().setApplicationBounds(new BoundingSphere(new Point3d(pos.x, pos.y, pos.z), Double.MAX_VALUE));
+        }
     }
 
     /**

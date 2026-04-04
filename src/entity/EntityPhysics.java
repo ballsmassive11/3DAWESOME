@@ -27,7 +27,7 @@ public class EntityPhysics {
     public static final Pillbox ENTITY_SHAPE = new Pillbox(ENTITY_RADIUS, EYE_HEIGHT);
 
     private static final float GRAVITY     = -22.0f;
-    private static final float MAX_SLOPE   = (float) Math.tan(Math.toRadians(40.0));
+    private static final float MAX_SLOPE   = (float) Math.tan(Math.toRadians(60.0));
     private static final float STEP_HEIGHT = 0.7f;
 
     private float   velocityY = 0f;

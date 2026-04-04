@@ -60,6 +60,7 @@ public class MeshObject extends BaseObject {
             Files.write(tempFile, filtered.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             Scene scene = loader.load(tempFile.toFile().toURI().toURL());
             BranchGroup root = scene.getSceneGroup();
+            applyMipmappingToGroup(root);
             modelCache.put(modelPath, root);
             return root;
         } catch (FileNotFoundException e) {
@@ -89,6 +90,25 @@ public class MeshObject extends BaseObject {
         }
 
         polygonCount = countPolygons(modelRoot);
+    }
+
+    /** Traverses a group tree and applies trilinear mipmap filters to every texture found. */
+    private static void applyMipmappingToGroup(Group group) {
+        java.util.Enumeration<?> children = group.getAllChildren();
+        while (children.hasMoreElements()) {
+            Object child = children.nextElement();
+            if (child instanceof Shape3D) {
+                Appearance app = ((Shape3D) child).getAppearance();
+                if (app == null) continue;
+                Texture tex = app.getTexture();
+                if (tex != null) {
+                    tex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
+                    tex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+                }
+            } else if (child instanceof Group) {
+                applyMipmappingToGroup((Group) child);
+            }
+        }
     }
 
     private void applyAppearanceToGroup(Group group, Appearance app) {

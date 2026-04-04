@@ -25,7 +25,7 @@ import java.nio.file.Paths;
  */
 public class MapGenerator implements TerrainHeightProvider {
 
-    private static final String SHADER_DIR = "src/terrain/terrainshaders/";
+    private static final String SHADER_DIR = "src/resources/terrain/";
 
     private final FastNoiseLite noise;
     private final FastNoiseLite warpNoise;
@@ -162,6 +162,8 @@ public class MapGenerator implements TerrainHeightProvider {
             if (tex != null) {
                 tex.setBoundaryModeS(Texture.WRAP);
                 tex.setBoundaryModeT(Texture.WRAP);
+                tex.setMinFilter(Texture.MULTI_LEVEL_LINEAR); // trilinear
+                tex.setMagFilter(Texture.BASE_LEVEL_LINEAR);  // bilinear up-close
                 tus[i].setTexture(tex);
             } else {
                 System.err.println("Warning: could not load terrain texture: " + texPaths[i]);

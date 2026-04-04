@@ -50,11 +50,16 @@ public class World {
     }
 
     public void clearObjects() {
-        for (BaseObject obj : objects) obj.detachFromScene();
+        MeshObject playerModel = player.getModel();
+        for (BaseObject obj : objects) {
+            if (obj != playerModel) obj.detachFromScene();
+        }
         objects.clear();
         waterHandlerLegacy = null;
         player.setTerrainProvider(null);
         for (Entity e : entities) e.setTerrainProvider(null);
+        // Keep the player model in the scene and tracked in the object list
+        if (playerModel != null) objects.add(playerModel);
     }
 
     public List<BaseObject> getObjects() {
