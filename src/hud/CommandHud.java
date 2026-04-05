@@ -31,7 +31,7 @@ public class CommandHud {
     // Maximum number of messages retained in chat history
     private static final int MAX_HISTORY = 60;
     // Number of chat lines visible in the HUD at once
-    private static final int VISIBLE_LINES = 16;
+    private static final int VISIBLE_LINES = 30;
     private static final boolean CLOSE_BAR_ON_ENTER = true;
 
     // -----------------------------------------------------------------------

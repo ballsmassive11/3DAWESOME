@@ -19,15 +19,18 @@ public class Lighting {
      */
     private void setupLighting() {
         // Ambient light
-        ambientLight = new AmbientLight(new Color3f(0.6f, 0.6f, 0.6f));
-        ambientLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), 100.0));
+        ambientLight = new AmbientLight(new Color3f(0.85f, 0.85f, 0.85f));
+        ambientLight.setCapability(AmbientLight.ALLOW_COLOR_WRITE);
+        ambientLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), Double.MAX_VALUE));
 
         // Directional light
         directionalLight = new DirectionalLight(
             new Color3f(1.0f, 1.0f, 1.0f),
             new Vector3f(-1.0f, -1.0f, -1.0f)
         );
-        directionalLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), 100.0));
+        directionalLight.setCapability(DirectionalLight.ALLOW_COLOR_WRITE);
+        directionalLight.setCapability(DirectionalLight.ALLOW_DIRECTION_WRITE);
+        directionalLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), Double.MAX_VALUE));
     }
 
     /**
@@ -37,6 +40,18 @@ public class Lighting {
     public void addToScene(BranchGroup sceneBranchGroup) {
         sceneBranchGroup.addChild(ambientLight);
         sceneBranchGroup.addChild(directionalLight);
+    }
+
+    public void setAmbientColor(Color3f color) {
+        ambientLight.setColor(color);
+    }
+
+    public void setDirectionalColor(Color3f color) {
+        directionalLight.setColor(color);
+    }
+
+    public void setDirectionalDirection(Vector3f dir) {
+        directionalLight.setDirection(dir);
     }
 
     public AmbientLight getAmbientLight() {

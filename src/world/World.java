@@ -14,10 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class World {
-    private final List<BaseObject> objects  = new ArrayList<>();
-    private final List<Entity>     entities = new ArrayList<>();
+    private final List<BaseObject>  objects    = new ArrayList<>();
+    private final List<Entity>      entities   = new ArrayList<>();
+    private final List<BranchGroup> lightNodes = new ArrayList<>();
 
     private final BranchGroup sceneBranchGroup;
+    private boolean lightsAdded = false;
     private Color3f backgroundColor;
     private final Lighting lighting;
     private final Player player;
@@ -55,11 +57,25 @@ public class World {
             if (obj != playerModel) obj.detachFromScene();
         }
         objects.clear();
+        for (BranchGroup lg : lightNodes) lg.detach();
+        lightNodes.clear();
         waterHandlerLegacy = null;
         player.setTerrainProvider(null);
         for (Entity e : entities) e.setTerrainProvider(null);
         // Keep the player model in the scene and tracked in the object list
         if (playerModel != null) objects.add(playerModel);
+    }
+
+    /**
+     * Adds a PointLight (or any Light node) to the scene.
+     * The light is wrapped in a detachable BranchGroup so it is removed on clearObjects().
+     */
+    public void addPointLight(PointLight light) {
+        BranchGroup lg = new BranchGroup();
+        lg.setCapability(BranchGroup.ALLOW_DETACH);
+        lg.addChild(light);
+        lightNodes.add(lg);
+        sceneBranchGroup.addChild(lg);
     }
 
     public List<BaseObject> getObjects() {
@@ -168,8 +184,9 @@ public class World {
     // ------------------------------------------------------------------
 
     public BranchGroup getSceneBranchGroup() {
-        if (sceneBranchGroup.numChildren() == objects.size()) {
+        if (!lightsAdded) {
             lighting.addToScene(sceneBranchGroup);
+            lightsAdded = true;
         }
         return sceneBranchGroup;
     }
