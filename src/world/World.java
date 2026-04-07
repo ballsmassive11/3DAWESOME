@@ -78,6 +78,13 @@ public class World {
         sceneBranchGroup.addChild(lg);
     }
 
+    /** Adds a raw BranchGroup to the scene, tracked so it is removed on clearObjects(). */
+    public void addNode(BranchGroup node) {
+        node.setCapability(BranchGroup.ALLOW_DETACH);
+        lightNodes.add(node);
+        sceneBranchGroup.addChild(node);
+    }
+
     public List<BaseObject> getObjects() {
         return new ArrayList<>(objects);
     }

@@ -41,7 +41,7 @@ public class MapGenerator implements TerrainHeightProvider {
     private static final float HILLS_BASE_Y = 2.0f;   // minimum hill height (above water)
     private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
     private static final float RIVER_WIDTH  = 0.25f;  // |riverNoise| threshold for channel width
-    private static final int   LAMP_SPACING = 25;     // grid cells between streetlamp sample points
+    private static final int   LAMP_SPACING = 20;     // grid cells between streetlamp sample points
     private static final double LAMP_SCALE  = 4.0;    // uniform scale applied to each lamp
 
     // ------------------------------------------------------------------
@@ -140,7 +140,7 @@ public class MapGenerator implements TerrainHeightProvider {
         // Split the terrain into chunks so Java3D's per-object 8-light limit applies
         // locally — each chunk picks the 8 nearest lamps rather than the 8 nearest
         // to the entire map's center. Chunk size ~40 world units; lamp bounds are 50.
-        final int CHUNK_SIZE = 50; // cells per chunk side (chunks share border vertices)
+        final int CHUNK_SIZE = 30; // cells per chunk side (chunks share border vertices)
         ShaderAppearance terrainApp = buildTerrainAppearance(); // build once, shared by all chunks
         for (int r0 = 0; r0 < rows - 1; r0 += CHUNK_SIZE - 1) {
             int chunkRows = Math.min(CHUNK_SIZE, rows - r0);
@@ -237,12 +237,19 @@ public class MapGenerator implements TerrainHeightProvider {
     // ------------------------------------------------------------------
 
     private void addWaterPlane(World world) {
-        Brick water = new Brick(gridSize, 80f, gridSize);
-        water.setCollidable(false);
-        water.setPosition(0, -35.1f, zOffset);
+        // Flat quad — no box interior, so camera can never enter it and see blue/black faces
+        float half = gridSize / 2.0f;
+        float z0   = -half + zOffset;
+        float z1   =  half + zOffset;
 
-        Appearance waterApp = water.getAppearance();
-        Material   waterMat = new Material();
+        QuadArray qa = new QuadArray(4,
+                GeometryArray.COORDINATES | GeometryArray.NORMALS | GeometryArray.TEXTURE_COORDINATE_2);
+        qa.setCoordinates(0, new float[]{ -half,0,z0,  half,0,z0,  half,0,z1,  -half,0,z1 });
+        qa.setNormals(0,      new float[]{    0,1,0,     0,1,0,     0,1,0,      0,1,0     });
+        qa.setTextureCoordinates(0, 0, new float[]{ 0,0, 1,0, 1,1, 0,1 });
+
+        ShaderAppearance waterApp = new ShaderAppearance();
+        Material waterMat = new Material();
         waterMat.setAmbientColor (new Color3f(0.00f, 0.05f, 0.40f));
         waterMat.setDiffuseColor (new Color3f(0.00f, 0.10f, 0.55f));
         waterMat.setSpecularColor(new Color3f(0.40f, 0.60f, 0.90f));
@@ -250,10 +257,66 @@ public class MapGenerator implements TerrainHeightProvider {
         waterApp.setMaterial(waterMat);
         waterApp.setTransparencyAttributes(
                 new TransparencyAttributes(TransparencyAttributes.BLENDED, 0.5f));
-        water.setAppearance(waterApp);
+        // Only draw the top face; surface disappears naturally when viewed from below
+        PolygonAttributes pa = new PolygonAttributes();
+        pa.setCullFace(PolygonAttributes.CULL_BACK);
+        waterApp.setPolygonAttributes(pa);
 
-        world.addObject(water);
-        world.setWaterHandler(new WaterHandlerLegacy(water, -40.1f));
+        // Load waternormal texture into unit 0
+        TextureLoader tl = new TextureLoader(SHADER_DIR + "waternormal.jpg", null);
+        Texture2D normalTex = (Texture2D) tl.getTexture();
+        if (normalTex != null) {
+            normalTex.setBoundaryModeS(Texture.WRAP);
+            normalTex.setBoundaryModeT(Texture.WRAP);
+            normalTex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
+            normalTex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+            TextureUnitState tus = new TextureUnitState();
+            tus.setTexture(normalTex);
+            waterApp.setTextureUnitState(new TextureUnitState[]{ tus });
+        } else {
+            System.err.println("Warning: could not load waternormal.jpg");
+        }
+
+        ShaderAttributeValue timeAttr = null;
+        try {
+            String vertSrc = new String(Files.readAllBytes(Paths.get(SHADER_DIR + "water.vert")));
+            String fragSrc = new String(Files.readAllBytes(Paths.get(SHADER_DIR + "water.frag")));
+
+            SourceCodeShader vs = new SourceCodeShader(
+                    Shader.SHADING_LANGUAGE_GLSL, Shader.SHADER_TYPE_VERTEX,   vertSrc);
+            SourceCodeShader fs = new SourceCodeShader(
+                    Shader.SHADING_LANGUAGE_GLSL, Shader.SHADER_TYPE_FRAGMENT, fragSrc);
+
+            GLSLShaderProgram program = new GLSLShaderProgram();
+            program.setShaders(new Shader[]{ vs, fs });
+            program.setShaderAttrNames(new String[]{ "waterNormalTex", "time" });
+            waterApp.setShaderProgram(program);
+
+            ShaderAttributeValue texAttr = new ShaderAttributeValue("waterNormalTex", new Integer(0));
+            timeAttr = new ShaderAttributeValue("time", new Float(0.0f));
+            timeAttr.setCapability(ShaderAttributeValue.ALLOW_VALUE_WRITE);
+
+            ShaderAttributeSet attrs = new ShaderAttributeSet();
+            attrs.put(texAttr);
+            attrs.put(timeAttr);
+            waterApp.setShaderAttributeSet(attrs);
+        } catch (IOException e) {
+            System.err.println("Could not load water shaders: " + e.getMessage());
+        }
+
+        Shape3D waterShape = new Shape3D(qa, waterApp);
+
+        TransformGroup waterTG = new TransformGroup();
+        waterTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        Transform3D initT = new Transform3D();
+        initT.setTranslation(new Vector3d(0, WATER_SURFACE_Y, 0));
+        waterTG.setTransform(initT);
+        waterTG.addChild(waterShape);
+
+        BranchGroup waterBG = new BranchGroup();
+        waterBG.addChild(waterTG);
+        world.addNode(waterBG);
+        world.setWaterHandler(new WaterHandlerLegacy(waterTG, WATER_SURFACE_Y, timeAttr));
     }
 
     // ------------------------------------------------------------------
@@ -297,7 +360,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 PointLight pl = new PointLight(
                     new Color3f(1.0f, 0.80f, 0.35f),                    // warm amber / sodium lamp
                     new Point3f(nx, lightY, lightZ),
-                    new Point3f(0.2f, 0.02f, 0.002f)                    // constant, linear, quadratic
+                    new Point3f(0.4f, 0.04f, 0.004f)                    // constant, linear, quadratic
                 );
                 pl.setInfluencingBounds(new BoundingSphere(new Point3d(nx, lightY, lightZ), 50.0));
                 world.addPointLight(pl);

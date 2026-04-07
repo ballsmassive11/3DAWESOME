@@ -42,11 +42,11 @@ public class Game3DRenderer {
     private boolean pendingSwapToDay;
     private float veilAlpha = 0f;
     // Each half (fade-in or fade-out) takes this many seconds
-    private static final float TRANS_HALF_SECS = 4f;
+    private static final float TRANS_HALF_SECS = 7f;
 
     // 3rd-person orbit camera
     private double camOrbitRadius = 5.0;
-    private static final double CAM_ZOOM_SPEED = 4.0;
+    private static final double CAM_ZOOM_SPEED = 5.0;
     private static final double CAM_MIN_RADIUS = 1.0;
     private static final double CAM_MAX_RADIUS = 20.0;
     private final Set<Integer> zoomKeys = new HashSet<>();
@@ -202,7 +202,8 @@ public class Game3DRenderer {
 
         double r = idealR * occlusionT(lookAt, idealX, idealY, idealZ);
         double camX = lookAt.x + sinY * cosP * r;
-        double camY = lookAt.y - sinP * r;
+        // Keep camera above the water surface (WATER_SURFACE_Y ≈ -0.1)
+        double camY = Math.max(lookAt.y - sinP * r, 1.5);
         double camZ = lookAt.z + cosY * cosP * r;
 
         Transform3D transform = new Transform3D();

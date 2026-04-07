@@ -1,10 +1,11 @@
 # 3DAWESOME
 
-A Java3D-based 3D world with procedurally generated organic terrain, animated water, OBJ model loading, a 3rd-person camera, entity/physics system, and an in-game command console.
+A Java3D-based 3D world with procedurally generated organic terrain, animated water, OBJ model loading, a 3rd-person orbit camera, entity/physics system, day/night cycle, and an in-game command console.
 
 ## Features
 
 - **Organic procedural terrain** — OpenSimplex2 FBm noise with domain warping for twisty, natural-looking landmasses
+- **Terrain types** — `biome` mode (sand → grass → rock → snow) and `hills` mode; switched via `genmap type=`
 - **Animated water** — transparent water plane with sinusoidal bobbing; seabed sand slopes down from the shoreline
 - **Multi-texture terrain shading** — GLSL shader blends sand → grass → rock → snow based on height
 - **OBJ model loading** — supports MTL materials; models are cached and cloned for efficient re-use
@@ -14,10 +15,12 @@ A Java3D-based 3D world with procedurally generated organic terrain, animated wa
 - **Entity system** — `Entity` abstract base class with `EntityPhysics`; Player and future NPCs all share the same physics pipeline
 - **Walking physics** — gravity, jumping, slope limiting, step-up, and pillbox capsule vs AABB collision
 - **Flight mode** — toggle with `fly` command; Space/Shift for vertical movement
-- **Distance fog** — geometry fades into the sky colour over the back half of the render distance
+- **Day/night cycle** — smooth 120-second cycle; ambient/directional lighting, fog colour, and skybox all update continuously; dawn/dusk tinted with Gaussian colour peaks
+- **Skybox** — cubemap skybox swaps between a cloudy day sky and a night sky as time progresses
+- **Distance fog** — geometry fades into the sky colour over the back half of the render distance; colour, start distance, and transition width are all tunable at runtime
 - **HUD overlay** — real-time FPS, player position/orientation, scene object and triangle counts, flying status
-- **Object spawner** — top-left panel lists all models in `src/resources/`; click to spawn in front of the player
-- **In-game command console** — press `` ` `` to open a text input bar; submit commands to change settings at runtime
+- **Object spawner** — top-left panel lists all models in `src/resources/models/`; click to spawn in front of the player
+- **In-game command console** — press `T` to open a text input bar; submit commands to change settings at runtime
 - **Ambient + directional lighting**
 - **Fullscreen rendering** via Java3D Canvas3D
 
@@ -32,25 +35,32 @@ A Java3D-based 3D world with procedurally generated organic terrain, animated wa
 | `←` / `→` | Yaw left / right |
 | `↑` / `↓` | Pitch up / down (orbits camera around player) |
 | `I` / `O` | Zoom camera in / out |
-| `` T ``   | Open command console |
+| `T`       | Open command console |
 | `Esc`     | Quit |
 
 ### Command Console
 
-Press `` T `` to open the input bar. Type a command and press `Enter` to submit, or `Esc` to cancel.
+Press `T` to open the input bar. Type a command and press `Enter` to submit, or `Esc` to cancel.
 
 | Command | Description |
 |---|---|
 | `fly` | Toggle flight mode (Space = ascend, Shift = descend) |
 | `fog on\|off` | Toggle distance fog |
+| `fog <margin 0.01–1.0>` | Set fog transition width as a fraction of render distance |
+| `fog near <dist>` | Set fog start in world units |
+| `fog color <r> <g> <b>` | Set fog colour (0–1 or 0–255) |
 | `fov <degrees>` | Set field of view (10–170°) |
 | `rdist <distance>` | Set render distance (also adjusts fog) |
-| `genmap [key=value]` | Regenerate mesh terrain — params: `seed size height threshold cellsize` |
+| `genmap [key=value]` | Regenerate mesh terrain — params: `seed size height threshold cellsize type=biome\|hills` |
 | `genmapl [key=value]` | Regenerate terrain (legacy brick mode) — params: `seed size height threshold blockwidth` |
 | `delmap` | Delete the current terrain |
 | `hitbox on\|off` | Toggle AABB wireframe hitboxes |
 | `spawn cube\|brick\|mesh [key=value]` | Spawn an object in front of the player |
-| `fun` | dont start this |
+| `time day\|night\|noon\|dawn\|dusk` | Jump to a preset time of day |
+| `time <0.0–1.0>` | Set time directly (0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk) |
+| `time pause\|resume` | Pause or resume the day/night cycle |
+| `time speed <seconds>` | Set full cycle duration in seconds (default 120) |
+| `fun` | don't start this |
 | `help` / `cmds` | List all commands |
 
 ## HUD Stats
@@ -79,7 +89,11 @@ src/
 │   └── Player.java                 — user-controlled entity; owns Camera for input, drives physics each frame
 ├── renderer/
 │   ├── Game3DRenderer.java         — Java3D universe, orbit camera, occlusion, zoom, keyboard input, commands
-│   └── WorldUpdateBehavior.java    — per-frame Behavior; drives world.update() and HUD sync
+│   ├── WorldUpdateBehavior.java    — per-frame Behavior; drives world.update() and HUD sync
+│   ├── CommandHandler.java         — parses and executes all in-game console commands
+│   ├── DayNightCycle.java          — tracks time of day; drives ambient/directional light, fog, and skybox
+│   └── skybox/
+│       └── Skybox.java             — cubemap skybox; swaps day/night geometry and overlay transparencies
 ├── hud/
 │   ├── HudCanvas.java              — Canvas3D subclass; draws stats overlay and spawner via postRender()
 │   ├── CommandHud.java             — in-game text input bar with history panel
@@ -95,6 +109,7 @@ src/
 │   ├── BaseObject.java             — abstract base; position, quaternion rotation, velocity, AABB, polygon counting
 │   ├── Brick.java                  — non-uniform box primitive
 │   ├── Cube.java                   — uniform box primitive
+│   ├── OscillatingCube.java        — cube with a sinusoidal bobbing animation
 │   ├── MeshObject.java             — OBJ loader with model cache and Blender compatibility preprocessing
 │   └── TerrainMesh.java            — procedural height-mapped mesh with per-vertex biome blend weights
 ├── physics/
@@ -125,7 +140,7 @@ public class Goblin extends Entity {
 
 // Register with the world:
 Goblin g = new Goblin();
-g.setModel(new MeshObject("src/resources/Goblin/goblin.obj"));
+g.setModel(new MeshObject("src/resources/models/Goblin/goblin.obj"));
 world.addEntity(g);  // adds entity + model to scene, sets terrain provider
 ```
 
@@ -149,6 +164,16 @@ Two `FastNoiseLite` instances:
 2. **Main noise** — OpenSimplex2 FBm (5 octaves) sampled at the warped coordinates.
 
 Height uses a `t^2.5` curve above a configurable threshold. A GLSL fragment shader blends four biome textures (sand, grass, rock, snow) based on a blend weight baked into the vertex alpha channel.
+
+## Day/Night Cycle
+
+Time runs from 0 (midnight) → 0.25 (dawn) → 0.5 (noon) → 0.75 (dusk) → 1 (midnight). Each frame:
+
+- Ambient and directional light colours are interpolated along a sinusoidal brightness curve, with Gaussian warm peaks at dawn and dusk.
+- Linear fog colour tracks the sky colour so the horizon blends naturally.
+- The cubemap skybox swaps between a cloudy day texture and a night texture as brightness crosses the threshold.
+
+Use `time speed <seconds>` to control how long a full cycle takes (default 120 s), or `time pause` to freeze the clock.
 
 ## Requirements
 

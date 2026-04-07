@@ -46,11 +46,13 @@ public class HudCanvas extends Canvas3D {
 
     @Override
     public void postRender() {
-        // The terrain ShaderAppearance leaves texture units 0-3 bound, which causes
-        // J3DGraphics2D to render 2D shapes textured with the terrain texture.
-        // Reset all active texture units to a clean state before drawing the overlay.
+        // The terrain/water ShaderAppearances leave texture units and the GLSL program
+        // bound, which causes J3DGraphics2D to render 2D shapes with active shaders
+        // (HUD invisible, or a screen-space lighting cone from the water shader).
+        // Reset texture units AND unbind the shader program before drawing the overlay.
         try {
             GL2 gl = GLContext.getCurrent().getGL().getGL2();
+            gl.glUseProgram(0);  // unbind any active GLSL shader
             for (int i = 3; i >= 0; i--) {
                 gl.glActiveTexture(GL2.GL_TEXTURE0 + i);
                 gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
