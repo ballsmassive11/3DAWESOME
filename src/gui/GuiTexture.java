@@ -1,0 +1,171 @@
+package gui;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+
+/**
+ * A GUI element that renders a PNG or JPG image onto the screen.
+ *
+ * <p>Position and size both use {@link GuiVec2}, where each axis resolves as
+ * {@code offset + scale * screenDimension}.  The anchor point is the top-left
+ * corner of the image unless {@code centered} is true.
+ *
+ * <pre>
+ *   GuiTexture crosshair = new GuiTexture("/resources/gui/crosshair.png");
+ *   crosshair.setCentered(true);
+ *   crosshair.setPosition(GuiVec2.ofScale(0.5f, 0.5f)); // middle of screen
+ *   crosshair.setSize(GuiVec2.ofOffset(64, 64));         // fixed 64×64 px
+ *   crosshair.setAlpha(0.9f);
+ * </pre>
+ *
+ * <p>Call {@link #draw(Graphics2D, int, int)} from inside
+ * {@link GuiCanvas#postRender()} (or any other {@link Graphics2D} context)
+ * to render the element.
+ */
+public class GuiTexture {
+
+    private BufferedImage image;
+    /** Position vector: each axis combines a fixed pixel offset and a screen-relative scale. */
+    private GuiVec2 position = new GuiVec2(0, 0f, 0, 0f);
+    /** Size vector: each axis combines a fixed pixel offset and a screen-relative scale. */
+    private GuiVec2 size = new GuiVec2(0, 0.1f, 0, 0.1f);
+    /** Opacity: 0 = fully transparent, 1 = fully opaque. */
+    private float alpha = 1f;
+    /** When true, the position is treated as the center rather than the top-left corner. */
+    private boolean centered = false;
+    /** Whether this element should be drawn at all. */
+    private boolean visible = true;
+
+    // ------------------------------------------------------------------
+    // Construction / loading
+    // ------------------------------------------------------------------
+
+    /**
+     * Creates a GuiTexture from a file system path or a classpath resource path.
+     * Classpath resources must start with {@code /} (e.g. {@code /resources/gui/icon.png}).
+     *
+     * @param path path to a PNG or JPG image
+     * @throws RuntimeException if the image cannot be loaded
+     */
+    public GuiTexture(String path) {
+        load(path);
+    }
+
+    /**
+     * Creates a GuiTexture and sets its position and size immediately.
+     *
+     * @param path     path to a PNG or JPG image
+     * @param position position vector (see {@link GuiVec2})
+     * @param size     size vector (see {@link GuiVec2})
+     */
+    public GuiTexture(String path, GuiVec2 position, GuiVec2 size) {
+        load(path);
+        this.position = position;
+        this.size = size;
+    }
+
+    private void load(String path) {
+        try {
+            BufferedImage loaded = null;
+
+            // Try classpath first (paths starting with '/')
+            if (path.startsWith("/")) {
+                InputStream is = GuiTexture.class.getResourceAsStream(path);
+                if (is != null) {
+                    loaded = ImageIO.read(is);
+                    is.close();
+                }
+            }
+
+            // Fall back to file system (try as-is, then src-relative)
+            if (loaded == null) {
+                File file = new File(path);
+                if (!file.exists() && path.startsWith("/")) {
+                    file = new File("src" + path);
+                }
+                if (file.exists()) {
+                    loaded = ImageIO.read(file);
+                }
+            }
+
+            if (loaded == null) {
+                throw new IOException("Image not found: " + path);
+            }
+
+            this.image = loaded;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load GuiTexture: " + path, e);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Drawing
+    // ------------------------------------------------------------------
+
+    /**
+     * Draws this texture onto the given {@link Graphics2D} context.
+     * Should be called from within {@link GuiCanvas#postRender()}.
+     *
+     * @param g2           the graphics context to draw into
+     * @param canvasWidth  current canvas width in pixels
+     * @param canvasHeight current canvas height in pixels
+     */
+    public void draw(Graphics2D g2, int canvasWidth, int canvasHeight) {
+        if (!visible || image == null) return;
+
+        int px = position.resolveX(canvasWidth);
+        int py = position.resolveY(canvasHeight);
+        int pw = size.resolveX(canvasWidth);
+        int ph = size.resolveY(canvasHeight);
+
+        if (centered) {
+            px -= pw / 2;
+            py -= ph / 2;
+        }
+
+        Composite prevComposite = g2.getComposite();
+        if (alpha < 1f) {
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        }
+
+        g2.drawImage(image, px, py, pw, ph, null);
+
+        if (alpha < 1f) {
+            g2.setComposite(prevComposite);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Getters / setters
+    // ------------------------------------------------------------------
+
+    /** Returns the raw loaded image. */
+    public BufferedImage getImage() { return image; }
+
+    /** Position vector controlling anchor point via offset + scale per axis. */
+    public GuiVec2 getPosition() { return position; }
+    public void setPosition(GuiVec2 position) { this.position = position; }
+
+    /** Size vector controlling width and height via offset + scale per axis. */
+    public GuiVec2 getSize() { return size; }
+    public void setSize(GuiVec2 size) { this.size = size; }
+
+    /** Opacity: 0 = fully transparent, 1 = fully opaque. */
+    public float getAlpha() { return alpha; }
+    public void setAlpha(float alpha) { this.alpha = Math.max(0f, Math.min(1f, alpha)); }
+
+    /**
+     * When {@code true}, the position is treated as the center of the image rather than
+     * its top-left corner.  Useful for icons that should be positioned by their center.
+     */
+    public boolean isCentered() { return centered; }
+    public void setCentered(boolean centered) { this.centered = centered; }
+
+    /** Whether this element is drawn. Defaults to {@code true}. */
+    public boolean isVisible() { return visible; }
+    public void setVisible(boolean visible) { this.visible = visible; }
+}
