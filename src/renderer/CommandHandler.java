@@ -1,7 +1,7 @@
 package renderer;
 
 import entity.EntityPhysics;
-import hud.CommandHud;
+import gui.CommandHud;
 import objects.BaseObject;
 import objects.Brick;
 import objects.Cube;

@@ -54,8 +54,11 @@ public abstract class Entity {
      */
     protected void syncModelTransform() {
         if (model == null) return;
-        // Model sits at feet; position is eye level
-        model.setPosition(position.x, position.y - EntityPhysics.EYE_HEIGHT, position.z);
+        // Model sits at feet; position is eye level.
+        // ObjectFile.RESIZE centres the model at its origin (spans [-0.5,0.5] * scale),
+        // so lift by half the Y scale to align the model's bottom with the feet.
+        double feetY = position.y - EntityPhysics.EYE_HEIGHT;
+        model.setPosition(position.x, feetY + model.getScale().y * 0.5, position.z);
         // +PI because models face +Z at rest but camera/movement faces -Z at yaw=0
         model.setRotationEuler(0, yaw + Math.PI, 0);
     }

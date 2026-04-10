@@ -121,7 +121,7 @@ public class World {
      * The model is non-collidable and added to the scene graph.
      */
     public void setPlayerModel(String modelPath) {
-        MeshObject model = new MeshObject(modelPath);
+        MeshObject model = new MeshObject(modelPath, true);
         model.setCollidable(false);
         player.setModel(model);
         addObject(model);

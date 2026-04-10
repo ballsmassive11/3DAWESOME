@@ -40,8 +40,8 @@ public class MapGenerator implements TerrainHeightProvider {
     // Hills terrain constants
     private static final float HILLS_BASE_Y = 2.0f;   // minimum hill height (above water)
     private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
-    private static final float RIVER_WIDTH  = 0.25f;  // |riverNoise| threshold for channel width
-    private static final int   LAMP_SPACING = 20;     // grid cells between streetlamp sample points
+    private static final float RIVER_WIDTH  = 0.35f;  // |riverNoise| threshold for channel width
+    private static final int   LAMP_SPACING = 25;     // grid cells between streetlamp sample points
     private static final double LAMP_SCALE  = 4.0;    // uniform scale applied to each lamp
 
     // ------------------------------------------------------------------
@@ -244,9 +244,10 @@ public class MapGenerator implements TerrainHeightProvider {
 
         QuadArray qa = new QuadArray(4,
                 GeometryArray.COORDINATES | GeometryArray.NORMALS | GeometryArray.TEXTURE_COORDINATE_2);
-        qa.setCoordinates(0, new float[]{ -half,0,z0,  half,0,z0,  half,0,z1,  -half,0,z1 });
-        qa.setNormals(0,      new float[]{    0,1,0,     0,1,0,     0,1,0,      0,1,0     });
-        qa.setTextureCoordinates(0, 0, new float[]{ 0,0, 1,0, 1,1, 0,1 });
+        // CCW winding from above (+Y) so CULL_BACK keeps the top face visible
+        qa.setCoordinates(0, new float[]{ -half,0,z0, -half,0,z1,  half,0,z1,  half,0,z0 });
+        qa.setNormals(0,      new float[]{    0,1,0,     0,1,0,     0,1,0,     0,1,0     });
+        qa.setTextureCoordinates(0, 0, new float[]{ 0,0, 0,1, 1,1, 1,0 });
 
         ShaderAppearance waterApp = new ShaderAppearance();
         Material waterMat = new Material();
@@ -345,7 +346,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 float nz = (jr - rows / 2f) * cellSize;
                 FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(nx, nz);
                 riverWarp.DomainWarp(rc);
-                if (Math.abs(riverNoise.GetNoise(rc.x, rc.y)) < RIVER_WIDTH * 2.5f) continue;
+                if (Math.abs(riverNoise.GetNoise(rc.x, rc.y)) < RIVER_WIDTH * 1.5f) continue;
 
                 MeshObject lamp = new MeshObject(LAMP_PATH, true);
                 lamp.setCollidable(false);
@@ -360,9 +361,9 @@ public class MapGenerator implements TerrainHeightProvider {
                 PointLight pl = new PointLight(
                     new Color3f(1.0f, 0.80f, 0.35f),                    // warm amber / sodium lamp
                     new Point3f(nx, lightY, lightZ),
-                    new Point3f(0.4f, 0.04f, 0.004f)                    // constant, linear, quadratic
+                    new Point3f(0.002f, 0.01f, 0.007f)                     // constant, linear, quadratic — fast falloff
                 );
-                pl.setInfluencingBounds(new BoundingSphere(new Point3d(nx, lightY, lightZ), 50.0));
+                pl.setInfluencingBounds(new BoundingSphere(new Point3d(nx, lightY, lightZ), 20.0));
                 world.addPointLight(pl);
             }
         }

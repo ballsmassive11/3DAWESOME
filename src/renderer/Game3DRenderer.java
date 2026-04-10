@@ -1,7 +1,7 @@
 package renderer;
 
-import hud.CommandHud;
-import hud.HudCanvas;
+import gui.CommandHud;
+import gui.GuiCanvas;
 import renderer.skybox.Skybox;
 import objects.BaseObject;
 import world.*;
@@ -22,7 +22,7 @@ import java.awt.event.*;
  * Command handling is delegated to {@link CommandHandler}.
  */
 public class Game3DRenderer {
-    private HudCanvas canvas;
+    private GuiCanvas canvas;
     private SimpleUniverse universe;
     private World world;
     private ViewingPlatform viewingPlatform;
@@ -58,7 +58,7 @@ public class Game3DRenderer {
 
     private void initializeRenderer() {
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
-        canvas = new HudCanvas(config, world);
+        canvas = new GuiCanvas(config, world);
         canvas.setSize(800, 600);
         canvas.setFocusable(true);
 
@@ -75,6 +75,7 @@ public class Game3DRenderer {
                     return;
                 }
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
+                if (e.getKeyCode() == KeyEvent.VK_F3) { canvas.toggleDebugPanel(); return; }
                 int kc = e.getKeyCode();
                 if (kc == KeyEvent.VK_I || kc == KeyEvent.VK_O) {
                     zoomKeys.add(kc);

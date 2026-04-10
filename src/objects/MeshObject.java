@@ -92,7 +92,8 @@ public class MeshObject extends BaseObject {
         polygonCount = countPolygons(modelRoot);
     }
 
-    /** Traverses a group tree and applies trilinear mipmap filters to every texture found. */
+    /** Traverses a group tree and applies trilinear mipmap filters to every texture found,
+     *  and ensures every Shape3D has a Material so lighting calculations apply. */
     private static void applyMipmappingToGroup(Group group) {
         java.util.Enumeration<?> children = group.getAllChildren();
         while (children.hasMoreElements()) {
@@ -104,6 +105,23 @@ public class MeshObject extends BaseObject {
                 if (tex != null) {
                     tex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
                     tex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+                    // REPLACE mode (Java3D default) ignores lighting; MODULATE multiplies
+                    // the texture by the lit material color so shading applies correctly.
+                    if (app.getTextureAttributes() == null) {
+                        TextureAttributes ta = new TextureAttributes();
+                        ta.setTextureMode(TextureAttributes.MODULATE);
+                        app.setTextureAttributes(ta);
+                    }
+                }
+                // Without a Material, Java3D disables lighting entirely (full brightness).
+                // Add a default one so diffuse shading applies.
+                if (app.getMaterial() == null) {
+                    Material mat = new Material();
+                    mat.setDiffuseColor(new Color3f(1.0f, 1.0f, 1.0f));
+                    mat.setAmbientColor(new Color3f(0.2f, 0.2f, 0.2f));
+                    mat.setSpecularColor(new Color3f(0.3f, 0.3f, 0.3f));
+                    mat.setShininess(32.0f);
+                    app.setMaterial(mat);
                 }
             } else if (child instanceof Group) {
                 applyMipmappingToGroup((Group) child);

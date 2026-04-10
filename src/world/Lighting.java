@@ -19,7 +19,7 @@ public class Lighting {
      */
     private void setupLighting() {
         // Ambient light
-        ambientLight = new AmbientLight(new Color3f(0.85f, 0.85f, 0.85f));
+        ambientLight = new AmbientLight(new Color3f(0.45f, 0.45f, 0.45f));
         ambientLight.setCapability(AmbientLight.ALLOW_COLOR_WRITE);
         ambientLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), Double.MAX_VALUE));
 

@@ -42,26 +42,26 @@ A Java3D-based 3D world with procedurally generated organic terrain, animated wa
 
 Press `T` to open the input bar. Type a command and press `Enter` to submit, or `Esc` to cancel.
 
-| Command | Description |
-|---|---|
-| `fly` | Toggle flight mode (Space = ascend, Shift = descend) |
-| `fog on\|off` | Toggle distance fog |
-| `fog <margin 0.01–1.0>` | Set fog transition width as a fraction of render distance |
-| `fog near <dist>` | Set fog start in world units |
-| `fog color <r> <g> <b>` | Set fog colour (0–1 or 0–255) |
-| `fov <degrees>` | Set field of view (10–170°) |
-| `rdist <distance>` | Set render distance (also adjusts fog) |
+| Command | Description                                                                               |
+|---|-------------------------------------------------------------------------------------------|
+| `fly` | Toggle flight mode (Space = ascend, Shift = descend)                                      |
+| `fog on\|off` | Toggle distance fog                                                                       |
+| `fog <margin 0.01–1.0>` | Set fog transition width as a fraction of render distance                                 |
+| `fog near <dist>` | Set fog start in world units                                                              |
+| `fog color <r> <g> <b>` | Set fog color (0–1 or 0–255)                                                              |
+| `fov <degrees>` | Set field of view (10–170°)                                                               |
+| `rdist <distance>` | Set render distance (also adjusts fog)                                                    |
 | `genmap [key=value]` | Regenerate mesh terrain — params: `seed size height threshold cellsize type=biome\|hills` |
-| `genmapl [key=value]` | Regenerate terrain (legacy brick mode) — params: `seed size height threshold blockwidth` |
-| `delmap` | Delete the current terrain |
-| `hitbox on\|off` | Toggle AABB wireframe hitboxes |
-| `spawn cube\|brick\|mesh [key=value]` | Spawn an object in front of the player |
-| `time day\|night\|noon\|dawn\|dusk` | Jump to a preset time of day |
-| `time <0.0–1.0>` | Set time directly (0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk) |
-| `time pause\|resume` | Pause or resume the day/night cycle |
-| `time speed <seconds>` | Set full cycle duration in seconds (default 120) |
-| `fun` | don't start this |
-| `help` / `cmds` | List all commands |
+| `genmapl [key=value]` | Regenerate terrain (legacy brick mode) — params: `seed size height threshold blockwidth`  |
+| `delmap` | Delete the current map                                                                    |
+| `hitbox on\|off` | Toggle AABB wireframe hitboxes                                                            |
+| `spawn cube\|brick\|mesh [key=value]` | Spawn an object in front of the player                                                    |
+| `time day\|night\|noon\|dawn\|dusk` | Jump to a preset time of day                                                              |
+| `time <0.0–1.0>` | Set time directly (0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk)                            |
+| `time pause\|resume` | Pause or resume the day/night cycle                                                       |
+| `time speed <seconds>` | Set full cycle duration in seconds (default 120)                                          |
+| `fun` | don't start this                                                                          |
+| `help` / `cmds` | List all commands                                                                         |
 
 ## HUD Stats
 
@@ -116,8 +116,26 @@ src/
 │   ├── AABB.java                   — immutable axis-aligned bounding box; translate/overlap helpers
 │   ├── Pillbox.java                — vertical capsule shape used for entity collision
 │   └── TerrainHeightProvider.java  — interface for querying ground height at any (x, z)
-└── util/
-    └── FastNoiseLite.java          — embedded noise library (MIT, Jordan Peck)
+├── util/
+│   └── FastNoiseLite.java          — embedded noise library (MIT, Jordan Peck)
+└── resources/
+    ├── models/
+    │   ├── Suzanne/                — Blender monkey head (no MTL)
+    │   ├── Boat/                   — wooden boat with MTL textures
+    │   ├── Rock/                   — rock mesh with MTL texture
+    │   ├── Ruger/                  — gun model with PBR textures
+    │   └── StreetLamp/             — street lamp with MTL textures
+    ├── skyboxes/
+    │   ├── cloudy_sky/             — daytime cubemap (6× PNG faces)
+    │   ├── night2/                 — night cubemap used by the day/night cycle
+    │   ├── night1/                 — alternate night cubemap
+    │   └── Default_Sky/            — default fallback cubemap
+    └── terrain/
+        ├── terrain.vert/.frag      — GLSL biome shader (blends sand/grass/rock/snow by height)
+        ├── water.vert/.frag        — GLSL animated water shader
+        ├── sand.jpg / grass.jpg    — biome diffuse textures
+        ├── rock.jpg / snow.jpg     — biome diffuse textures
+        └── waternormal.jpg         — normal map for water surface distortion
 ```
 
 ## Entity System

@@ -1,4 +1,4 @@
-# Blender 5.1.0 MTL File: 'None'
+# Blender 5.1.0 MTL File: 'ruger.blend'
 # www.blender.org
 
 newmtl Lower_Part
@@ -11,6 +11,7 @@ illum 2
 map_Kd Lower_Part_Base_color.png
 map_Ns Lower_Part_Roughness.png
 map_refl Lower_Part_Metallic.png
+map_Bump -bm 1.000000 Lower_Part_Normal_OpenGL.png
 
 newmtl Upper_Part
 Ka 1.000000 1.000000 1.000000
@@ -22,3 +23,4 @@ map_Kd g18_Upper_Part_BaseColor.png
 map_Ns Upper_Part_Roughness.png
 map_refl Upper_Part_Metallic.png
 map_Ke g18_Upper_Part_Emissive.png
+map_Bump -bm 1.000000 Upper_Part_Normal_OpenGL.png

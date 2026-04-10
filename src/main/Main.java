@@ -1,9 +1,13 @@
 package main;
 
+import gui.GuiTexture;
 import objects.*;
 import world.*;
 import terrain.MapGenerator;
 import renderer.*;
+
+import javax.media.j3d.Appearance;
+import javax.media.j3d.Material;
 import javax.vecmath.Color3f;
 import javax.swing.*;
 import java.awt.*;
@@ -19,7 +23,7 @@ public class Main {
         World world = new World();
 
         // Set the player's visible body model
-        world.setPlayerModel("src/resources/models/Suzanne/suzanne.obj");
+        world.setPlayerModel("src/resources/models/Guy/guy.obj");
 
         MapGenerator mapGen = new MapGenerator();
         //mapGen.setGeneratorToNoise();
@@ -47,11 +51,19 @@ public class Main {
         world.addObject(boat);
 
         // Add the Ruger model object with textures
-//        MeshObject ruger = new MeshObject("src/resources/Ruger/ruger.obj", true);
-//        ruger.setPosition(-2.0f, 10.0f, 2.0f);
-//        ruger.setScale(2.0f);
-//        ruger.setAngularVelocity(0, 0.5, 0); // Rotate the gun
-//        world.addObject(ruger);
+        MeshObject ruger = new MeshObject("src/resources/models/Ruger/ruger.obj", true);
+        ruger.setPosition(-2.0f, 10.0f, 2.0f);
+        ruger.setScale(2.0f);
+        ruger.setAngularVelocity(0, 0.5, 0); // Rotate the gun
+        Appearance appearance = ruger.getAppearance();
+        Material material = appearance.getMaterial();
+        material.setAmbientColor(new Color3f(0.1f, 0.1f, 0.1f));
+        material.setDiffuseColor(new Color3f(0.8f, 0.8f, 0.8f));
+        material.setSpecularColor(new Color3f(1f, 1f, 1f));
+        material.setShininess(150.0f);
+        appearance.setMaterial(material);
+        ruger.setAppearance(appearance);
+        world.addObject(ruger);
 
         MeshObject rock = new MeshObject("src/resources/models/Rock/fuckassRock.obj", true);
         rock.setPosition(-8.0f, 30.0f, 8.0f);
@@ -61,6 +73,7 @@ public class Main {
 
         System.out.println("creating the renderer object");
         Game3DRenderer renderer = new Game3DRenderer(world);
+
 
         JFrame frame = new JFrame("Ohio impressed");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
