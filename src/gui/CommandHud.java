@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 public class CommandHud {
 
     /** Key that opens the input bar when it is currently closed. */
-    public static final int TOGGLE_KEY = KeyEvent.VK_T;
+    public static final int TOGGLE_KEY = KeyEvent.VK_SLASH;
 
     // Maximum number of messages retained in chat history
     private static final int MAX_HISTORY = 60;
@@ -180,7 +180,7 @@ public class CommandHud {
             int lineH = hfm.getHeight();
 
             int start = Math.max(0, history.size() - VISIBLE_LINES);
-            List<LogEntry> visible = history.subList(start, history.size());
+            List<LogEntry> visible = new ArrayList<>(history.subList(start, history.size()));
 
             int panelH = visible.size() * lineH + pad;
             int panelY = barY - panelH - 4;

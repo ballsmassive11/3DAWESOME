@@ -1,10 +1,10 @@
 package terrain;
 
-import objects.Brick;
 import objects.MeshObject;
 import objects.TerrainMesh;
 import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
+import water.WaterPlane;
 import world.World;
 
 import com.sun.j3d.utils.image.TextureLoader;
@@ -32,10 +32,6 @@ public class MapGenerator implements TerrainHeightProvider {
 
     private static final String SHADER_DIR  = "src/resources/terrain/";
     private static final String LAMP_PATH   = "src/resources/models/StreetLamp/streetlamp.obj";
-
-    // The water Brick is animated by WaterHandlerLegacy around baseY=-40.1 with height=80,
-    // so its top face sits at approximately y = -40.1 + 40 = -0.1 (≈ sea level / water surface).
-    private static final float WATER_SURFACE_Y = -0.1f;
 
     // Hills terrain constants
     private static final float HILLS_BASE_Y = 2.0f;   // minimum hill height (above water)
@@ -156,7 +152,7 @@ public class MapGenerator implements TerrainHeightProvider {
             }
         }
 
-        addWaterPlane(world);
+        WaterPlane.create(world, gridSize, zOffset);
         world.setTerrainProvider(this);
 
         if ("hills".equals(terrainType)) {
@@ -233,94 +229,6 @@ public class MapGenerator implements TerrainHeightProvider {
     }
 
     // ------------------------------------------------------------------
-    // Water plane (shared by both terrain types)
-    // ------------------------------------------------------------------
-
-    private void addWaterPlane(World world) {
-        // Flat quad — no box interior, so camera can never enter it and see blue/black faces
-        float half = gridSize / 2.0f;
-        float z0   = -half + zOffset;
-        float z1   =  half + zOffset;
-
-        QuadArray qa = new QuadArray(4,
-                GeometryArray.COORDINATES | GeometryArray.NORMALS | GeometryArray.TEXTURE_COORDINATE_2);
-        // CCW winding from above (+Y) so CULL_BACK keeps the top face visible
-        qa.setCoordinates(0, new float[]{ -half,0,z0, -half,0,z1,  half,0,z1,  half,0,z0 });
-        qa.setNormals(0,      new float[]{    0,1,0,     0,1,0,     0,1,0,     0,1,0     });
-        qa.setTextureCoordinates(0, 0, new float[]{ 0,0, 0,1, 1,1, 1,0 });
-
-        ShaderAppearance waterApp = new ShaderAppearance();
-        Material waterMat = new Material();
-        waterMat.setAmbientColor (new Color3f(0.00f, 0.05f, 0.40f));
-        waterMat.setDiffuseColor (new Color3f(0.00f, 0.10f, 0.55f));
-        waterMat.setSpecularColor(new Color3f(0.40f, 0.60f, 0.90f));
-        waterMat.setShininess(80f);
-        waterApp.setMaterial(waterMat);
-        waterApp.setTransparencyAttributes(
-                new TransparencyAttributes(TransparencyAttributes.BLENDED, 0.5f));
-        // Only draw the top face; surface disappears naturally when viewed from below
-        PolygonAttributes pa = new PolygonAttributes();
-        pa.setCullFace(PolygonAttributes.CULL_BACK);
-        waterApp.setPolygonAttributes(pa);
-
-        // Load waternormal texture into unit 0
-        TextureLoader tl = new TextureLoader(SHADER_DIR + "waternormal.jpg", null);
-        Texture2D normalTex = (Texture2D) tl.getTexture();
-        if (normalTex != null) {
-            normalTex.setBoundaryModeS(Texture.WRAP);
-            normalTex.setBoundaryModeT(Texture.WRAP);
-            normalTex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
-            normalTex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
-            TextureUnitState tus = new TextureUnitState();
-            tus.setTexture(normalTex);
-            waterApp.setTextureUnitState(new TextureUnitState[]{ tus });
-        } else {
-            System.err.println("Warning: could not load waternormal.jpg");
-        }
-
-        ShaderAttributeValue timeAttr = null;
-        try {
-            String vertSrc = new String(Files.readAllBytes(Paths.get(SHADER_DIR + "water.vert")));
-            String fragSrc = new String(Files.readAllBytes(Paths.get(SHADER_DIR + "water.frag")));
-
-            SourceCodeShader vs = new SourceCodeShader(
-                    Shader.SHADING_LANGUAGE_GLSL, Shader.SHADER_TYPE_VERTEX,   vertSrc);
-            SourceCodeShader fs = new SourceCodeShader(
-                    Shader.SHADING_LANGUAGE_GLSL, Shader.SHADER_TYPE_FRAGMENT, fragSrc);
-
-            GLSLShaderProgram program = new GLSLShaderProgram();
-            program.setShaders(new Shader[]{ vs, fs });
-            program.setShaderAttrNames(new String[]{ "waterNormalTex", "time" });
-            waterApp.setShaderProgram(program);
-
-            ShaderAttributeValue texAttr = new ShaderAttributeValue("waterNormalTex", new Integer(0));
-            timeAttr = new ShaderAttributeValue("time", new Float(0.0f));
-            timeAttr.setCapability(ShaderAttributeValue.ALLOW_VALUE_WRITE);
-
-            ShaderAttributeSet attrs = new ShaderAttributeSet();
-            attrs.put(texAttr);
-            attrs.put(timeAttr);
-            waterApp.setShaderAttributeSet(attrs);
-        } catch (IOException e) {
-            System.err.println("Could not load water shaders: " + e.getMessage());
-        }
-
-        Shape3D waterShape = new Shape3D(qa, waterApp);
-
-        TransformGroup waterTG = new TransformGroup();
-        waterTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
-        Transform3D initT = new Transform3D();
-        initT.setTranslation(new Vector3d(0, WATER_SURFACE_Y, 0));
-        waterTG.setTransform(initT);
-        waterTG.addChild(waterShape);
-
-        BranchGroup waterBG = new BranchGroup();
-        waterBG.addChild(waterTG);
-        world.addNode(waterBG);
-        world.setWaterHandler(new WaterHandlerLegacy(waterTG, WATER_SURFACE_Y, timeAttr));
-    }
-
-    // ------------------------------------------------------------------
     // Streetlamp spawning (hills only)
     // ------------------------------------------------------------------
 
@@ -339,7 +247,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 float height = heights[jr * cols + jc];
 
                 // Skip cells that are at or near water level
-                if (height <= WATER_SURFACE_Y + 1.5f) continue;
+                if (height <= WaterPlane.WATER_SURFACE_Y + 1.5f) continue;
 
                 // Skip cells that are too close to a river channel
                 float nx = (jc - cols / 2f) * cellSize;

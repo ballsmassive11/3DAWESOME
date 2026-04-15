@@ -110,4 +110,26 @@ public class Camera {
     public void keyReleased(int keyCode) {
         activeKeys.remove(keyCode);
     }
+
+    /** Returns true while the Shift key is held. */
+    public boolean isShiftHeld() {
+        return activeKeys.contains(KeyEvent.VK_SHIFT);
+    }
+
+    /**
+     * Returns the world-space yaw the player model should face based on the
+     * current WASD input and camera orientation, or {@code Double.NaN} if no
+     * movement keys are held.
+     */
+    public double getMovementFacingYaw() {
+        double moveX = 0, moveZ = 0;
+        if (activeKeys.contains(KeyEvent.VK_W)) moveZ -= 1;
+        if (activeKeys.contains(KeyEvent.VK_S)) moveZ += 1;
+        if (activeKeys.contains(KeyEvent.VK_A)) moveX -= 1;
+        if (activeKeys.contains(KeyEvent.VK_D)) moveX += 1;
+        if (moveX == 0 && moveZ == 0) return Double.NaN;
+        double dx = moveZ * Math.sin(yaw) + moveX * Math.cos(yaw);
+        double dz = moveZ * Math.cos(yaw) - moveX * Math.sin(yaw);
+        return Math.atan2(-dx, -dz);
+    }
 }

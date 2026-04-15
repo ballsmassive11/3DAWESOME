@@ -2,6 +2,7 @@ package terrain;
 
 import objects.Brick;
 import util.FastNoiseLite;
+import water.WaterHandlerLegacy;
 import world.World;
 
 import javax.media.j3d.Appearance;

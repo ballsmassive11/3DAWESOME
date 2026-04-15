@@ -10,6 +10,7 @@ import physics.AABB;
 import terrain.MapGenerator;
 import terrain.MapGeneratorLegacy;
 import world.Camera;
+import world.GameSettings;
 import world.World;
 
 import javax.vecmath.Color3f;
@@ -71,7 +72,9 @@ public class CommandHandler {
             generateMapLegacy(hud, parts.length == 2 ? parts[1] : "");
 
         } else if (cmd.equals("delmap")) {
+            renderer.notifySceneChanging();
             world.clearObjects();
+            renderer.notifySceneReady();
             hud.logOutput("Map deleted.");
 
         } else if (cmd.equals("spawn")) {
@@ -92,6 +95,35 @@ public class CommandHandler {
         } else if (cmd.equals("time")) {
             handleTime(hud, parts.length == 2 ? parts[1].trim() : "");
 
+        } else if (cmd.equals("shiftlock")) {
+            String arg = parts.length == 2 ? parts[1].trim().toLowerCase() : "";
+            if (arg.equals("on")) {
+                world.getPlayer().setShiftLockEnabled(true);
+                hud.logOutput("Shift lock ON — hold Shift to snap player to camera direction.");
+            } else if (arg.equals("off")) {
+                world.getPlayer().setShiftLockEnabled(false);
+                hud.logOutput("Shift lock OFF — player faces movement direction.");
+            } else {
+                boolean now = !world.getPlayer().isShiftLockEnabled();
+                world.getPlayer().setShiftLockEnabled(now);
+                hud.logOutput("Shift lock " + (now ? "ON" : "OFF"));
+            }
+
+        } else if (cmd.equals("quality")) { // changes game quality
+            if (parts.length < 2) {
+                hud.logOutput("Quality: " + GameSettings.quality + "/10  (water renders at >= " + GameSettings.WATER_RENDER_THRESHOLD + ")");
+            } else {
+                try {
+                    int level = Integer.parseInt(parts[1]);
+                    level = Math.max(1, Math.min(10, level));
+                    GameSettings.quality = level;
+                    boolean waterOn = level >= GameSettings.WATER_RENDER_THRESHOLD;
+                    hud.logOutput("Quality set to " + level + "/10  (water reflections: " + (waterOn ? "ON" : "OFF") + ")");
+                } catch (NumberFormatException ignored) {
+                    hud.logOutput("Usage: quality <1-10>");
+                }
+            }
+
         } else if (cmd.equals("fun")) {
             hud.logOutput("say less");
             List<BaseObject> objects = world.getObjects();
@@ -106,6 +138,7 @@ public class CommandHandler {
 
         } else if (cmd.equals("cmds") || cmd.equals("help")) {
             hud.logOutput("fly                     - Toggle flight (Space=up, Shift=down)");
+            hud.logOutput("shiftlock [on|off]      - Toggle shift lock (hold Shift to snap player rotation to camera)");
             hud.logOutput("fog on|off              - Toggle distance fog");
             hud.logOutput("fog <margin 0.01-1.0>   - Set fog transition width (fraction of rdist)");
             hud.logOutput("fog near <dist>         - Set fog start in world units");
@@ -127,6 +160,7 @@ public class CommandHandler {
             hud.logOutput("time <0.0-1.0>          - Set time (0=midnight 0.25=dawn 0.5=noon 0.75=dusk)");
             hud.logOutput("time pause|resume        - Pause or resume the day/night cycle");
             hud.logOutput("time speed <secs>       - Set cycle duration in seconds (default 120)");
+            hud.logOutput("quality <1-10>          - Set game quality (water reflections require >= " + GameSettings.WATER_RENDER_THRESHOLD + ")");
             hud.logOutput("fun                     - would recommend turning render distance down");
             hud.logOutput("cmds / help             - Show this message");
 
@@ -258,6 +292,7 @@ public class CommandHandler {
 
         Thread t = new Thread(() -> {
             renderer.stopRenderer();
+            renderer.notifySceneChanging();
             try {
                 world.clearObjects();
                 MapGenerator gen = new MapGenerator();
@@ -270,6 +305,7 @@ public class CommandHandler {
                 gen.generate(world);
                 world.setSeed(fSeed);
             } finally {
+                renderer.notifySceneReady();
                 renderer.startRenderer();
             }
             hud.logOutput("Map ready.");
@@ -314,6 +350,7 @@ public class CommandHandler {
 
         Thread t = new Thread(() -> {
             renderer.stopRenderer();
+            renderer.notifySceneChanging();
             try {
                 world.clearObjects();
                 MapGeneratorLegacy gen = new MapGeneratorLegacy();
@@ -325,6 +362,7 @@ public class CommandHandler {
                 gen.generate(world);
                 world.setSeed(fSeed);
             } finally {
+                renderer.notifySceneReady();
                 renderer.startRenderer();
             }
             hud.logOutput("Map ready.");
@@ -424,6 +462,7 @@ public class CommandHandler {
                 final boolean fUseMtl = useMtl;
                 Thread t = new Thread(() -> {
                     renderer.stopRenderer();
+                    renderer.notifySceneChanging();
                     try {
                         MeshObject mesh = new MeshObject(fPath, fUseMtl);
                         if (fAABB != null) mesh.setLocalAABB(fAABB);
@@ -431,6 +470,7 @@ public class CommandHandler {
                         mesh.setPosition(fx, fy, fz);
                         world.addObject(mesh);
                     } finally {
+                        renderer.notifySceneReady();
                         renderer.startRenderer();
                     }
                     hud.logOutput("Spawned mesh (" + fPath + ", collide=" + fCol + ") at ("

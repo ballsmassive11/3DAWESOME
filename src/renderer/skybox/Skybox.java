@@ -222,6 +222,10 @@ public class Skybox {
 
         TransparencyAttributes ta = new TransparencyAttributes(TransparencyAttributes.BLENDED, 0.0f);
         ta.setCapability(TransparencyAttributes.ALLOW_MODE_WRITE);
+        // ALLOW_VALUE_WRITE lets setFogVisible hide the overlay by setting
+        // transparency=1.0 (fully transparent) rather than switching to NONE mode.
+        // NONE mode disables alpha blending entirely, making the grey quad opaque.
+        ta.setCapability(TransparencyAttributes.ALLOW_VALUE_WRITE);
         list.add(ta);
 
         Appearance app = new Appearance();
@@ -273,9 +277,11 @@ public class Skybox {
     /** Shows or hides the fog gradient overlay on the currently active skybox. */
     public void setFogVisible(boolean visible) {
         this.fogVisible = visible;
-        int mode = visible ? TransparencyAttributes.BLENDED : TransparencyAttributes.NONE;
+        // Use transparency VALUE (0=opaque, 1=fully transparent) rather than toggling
+        // the transparency MODE.  Setting mode=NONE disables alpha blending entirely,
+        // which makes the grey overlay render as a solid opaque quad instead of hiding it.
         for (TransparencyAttributes ta : activeOverlayTransparencies) {
-            ta.setTransparencyMode(mode);
+            ta.setTransparency(visible ? 0.0f : 1.0f);
         }
     }
 

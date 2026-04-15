@@ -1,6 +1,6 @@
 package main;
 
-import gui.GuiTexture;
+import gui.*;
 import objects.*;
 import world.*;
 import terrain.MapGenerator;
@@ -23,7 +23,7 @@ public class Main {
         World world = new World();
 
         // Set the player's visible body model
-        world.setPlayerModel("src/resources/models/Guy/guy.obj");
+        world.setPlayerModel("src/resources/models/Rock/fuckassRock.obj");
 
         MapGenerator mapGen = new MapGenerator();
         //mapGen.setGeneratorToNoise();
@@ -73,6 +73,7 @@ public class Main {
 
         System.out.println("creating the renderer object");
         Game3DRenderer renderer = new Game3DRenderer(world);
+
 
 
         JFrame frame = new JFrame("Ohio impressed");

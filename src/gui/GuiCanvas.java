@@ -1,5 +1,6 @@
 package gui;
 
+import water.WaterRTT;
 import world.World;
 
 import com.jogamp.opengl.GL2;
@@ -7,14 +8,31 @@ import com.jogamp.opengl.GLContext;
 import javax.media.j3d.Canvas3D;
 import javax.media.j3d.J3DGraphics2D;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Canvas3D subclass that draws the GUI overlay directly via postRender(),
  * bypassing the heavyweight/lightweight Swing mixing issue.
  */
 public class GuiCanvas extends Canvas3D {
+
+    /**
+     * Shared Arial SDF bitmap font.  Loaded once on first access.
+     * Use this when creating {@link GuiText} elements.
+     *
+     * <pre>
+     *   GuiText label = new GuiText(GuiCanvas.ARIAL, "Score: 0",
+     *       GuiVec2.ofOffset(20, 20));
+     *   label.setPixelHeight(24);
+     *   guiCanvas.addText(label);
+     * </pre>
+     */
+    public static final BitmapFont ARIAL =
+        new BitmapFont("/resources/fonts/arial/arial.fnt");
+
     private volatile double fps = 0;
     private volatile double camX = 0, camY = 0, camZ = 0;
     private volatile double yawDeg = 0, pitchDeg = 0;
@@ -26,13 +44,26 @@ public class GuiCanvas extends Canvas3D {
 
     private final CommandHud commandHud = new CommandHud();
     private GuiTexture crosshair;
+    private GuiTexture joey;
+
+    private final World world;
+    private boolean pipVisible = true;
+
+    /** User-managed text elements drawn every frame. Thread-safe. */
+    private final List<GuiText> texts = new CopyOnWriteArrayList<>();
 
     public GuiCanvas(GraphicsConfiguration config, World world) {
         super(config);
-        crosshair = new GuiTexture("/resources/gui/happyhappyhappy.png");
+        this.world = world;
+        crosshair = new GuiTexture("/resources/gui/SreTransparentCrop.png");
         crosshair.setCentered(true);
-        crosshair.setPosition(new GuiVec2(20f,0.1f,20f, 0.1f));
-        crosshair.setSize(GuiVec2.ofOffset(180f, 180f));
+        crosshair.setPosition(new GuiVec2(100f,0.1f,200f, 0.1f));
+        crosshair.setSize(GuiVec2.ofOffset(250f, 300f));
+
+        joey = new GuiTexture("/resources/gui/joey.png");
+        joey.setCentered(true);
+        joey.setPosition(new GuiVec2(100f,0.1f,200f, 0.5f));
+        joey.setSize(GuiVec2.ofOffset(250f, 250));
     }
 
     public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
@@ -54,6 +85,22 @@ public class GuiCanvas extends Canvas3D {
 
     public CommandHud getCommandHud() { return commandHud; }
 
+    // ------------------------------------------------------------------ //
+    // Text management                                                     //
+    // ------------------------------------------------------------------ //
+
+    /** Adds a {@link GuiText} element to be drawn every frame. */
+    public void addText(GuiText text)    { texts.add(text); }
+
+    /** Removes a previously added {@link GuiText} element. */
+    public void removeText(GuiText text) { texts.remove(text); }
+
+    /** Removes all {@link GuiText} elements. */
+    public void clearTexts()             { texts.clear(); }
+
+    /** Toggles the PiP water RTT preview in the top-left corner. */
+    public void togglePip() { pipVisible = !pipVisible; }
+
     @Override
     public void postRender() {
         // The terrain/water ShaderAppearances leave texture units and the GLSL program
@@ -62,7 +109,7 @@ public class GuiCanvas extends Canvas3D {
         // Reset texture units AND unbind the shader program before drawing the overlay.
         try {
             GL2 gl = GLContext.getCurrent().getGL().getGL2();
-            gl.glUseProgram(0);  // unbind any active GLSL shader
+            gl.glUseProgram(0);
             for (int i = 3; i >= 0; i--) {
                 gl.glActiveTexture(GL2.GL_TEXTURE0 + i);
                 gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
@@ -73,11 +120,54 @@ public class GuiCanvas extends Canvas3D {
 
         J3DGraphics2D g2d = getGraphics2D();
 
+        if (pipVisible) drawRttPiP(g2d, getWidth(), getHeight());
+
         crosshair.draw(g2d, getWidth(), getHeight());
+        joey.draw(g2d, getWidth(), getHeight());
+
+        for (GuiText t : texts) t.draw(g2d, getWidth(), getHeight());
 
         if (debugVisible) drawDebugPanel(g2d);
         commandHud.draw(g2d, getWidth(), getHeight());
         g2d.flush(false);
+    }
+
+    /**
+     * Draws reflection and refraction PiP thumbnails in the top-left corner
+     * using the latest frames captured by {@link WaterRTT}.
+     */
+    private void drawRttPiP(Graphics2D g2d, int cw, int ch) {
+        WaterRTT rtt = world.getWaterRTT();
+        if (rtt == null) return;
+        BufferedImage refl = rtt.getLatestReflectionImage();
+        BufferedImage refr = rtt.getLatestRefractionImage();
+        if (refl == null && refr == null) return;
+
+        final int PAD = 8;
+        final int W   = cw / 5;
+        final int H   = ch / 5;
+
+        String[] labels = { "Reflection", "Refraction" };
+        BufferedImage[] imgs = { refl, refr };
+        int[] xs = { PAD, PAD + W + PAD };
+
+        g2d.setFont(new Font(Font.MONOSPACED, Font.BOLD, 11));
+        FontMetrics fm = g2d.getFontMetrics();
+
+        for (int i = 0; i < 2; i++) {
+            int x = xs[i];
+            if (imgs[i] != null) g2d.drawImage(imgs[i], x, PAD, W, H, null);
+            // Border
+            g2d.setColor(new Color(255, 255, 255, 180));
+            g2d.drawRect(x, PAD, W, H);
+            // Label background
+            int lw = fm.stringWidth(labels[i]) + 6;
+            g2d.setColor(new Color(0, 0, 0, 140));
+            g2d.fillRect(x + 2, PAD + H - fm.getHeight() - 2, lw, fm.getHeight() + 2);
+            // Label text
+            g2d.setColor(Color.WHITE);
+            g2d.drawString(labels[i], x + 4, PAD + H - fm.getDescent() - 2);
+        }
     }
 
     private void drawDebugPanel(Graphics2D g2) {

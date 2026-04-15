@@ -18,7 +18,14 @@ import java.util.List;
  */
 public class Player extends Entity {
 
+    // Spring-damper constants.  ζ = DAMPING / (2√STIFFNESS) ≈ 1.004 → overdamped (no oscillation).
+    private static final double ROTATION_STIFFNESS = 90.0;
+    private static final double ROTATION_DAMPING   = 11.0;
+
     private final Camera camera;
+    private boolean shiftLockEnabled = false;
+    private double  angularVelocity  = 0.0;
+    private double  targetYaw        = 0.0;
 
     public Player() {
         super(); // initialises position to (0, 15, 5), creates EntityPhysics
@@ -31,10 +38,32 @@ public class Player extends Entity {
         // 1. Update camera rotation from arrow keys
         camera.update(deltaTime);
 
-        // 2. Keep entity yaw in sync with where the camera is facing
-        yaw = camera.getYaw();
+        // 2. Determine whether the character should rotate this frame.
+        //    Shift-lock (when enabled + held) always rotates toward camera yaw.
+        //    Otherwise rotate only while actively moving; standing still freezes the model.
+        double movYaw = camera.getMovementFacingYaw();
+        boolean shouldRotate;
+        if (shiftLockEnabled && camera.isShiftHeld()) {
+            targetYaw   = camera.getYaw();
+            shouldRotate = true;
+        } else if (!Double.isNaN(movYaw)) {
+            targetYaw   = movYaw;
+            shouldRotate = true;
+        } else {
+            shouldRotate = false;
+        }
 
-        // 3. Apply WASD horizontal movement to the shared position
+        // 3. Spring-damper: smoothly drive yaw toward targetYaw while moving.
+        //    When not moving, zero angular velocity so the model holds its last facing.
+        if (shouldRotate) {
+            double diff = shortestAngleDiff(targetYaw, yaw);
+            angularVelocity += (diff * ROTATION_STIFFNESS - angularVelocity * ROTATION_DAMPING) * deltaTime;
+            yaw             += angularVelocity * deltaTime;
+        } else {
+            angularVelocity = 0.0;
+        }
+
+        // 4. Apply WASD horizontal movement to the shared position
         camera.applyMovement(deltaTime);
 
         // 4. Physics: gravity, jumping, terrain clamping, AABB collision
@@ -50,5 +79,16 @@ public class Player extends Entity {
     /** The camera used for view/input — its position IS the entity position. */
     public Camera getCamera() {
         return camera;
+    }
+
+    public boolean isShiftLockEnabled() { return shiftLockEnabled; }
+    public void setShiftLockEnabled(boolean enabled) { shiftLockEnabled = enabled; }
+
+    /** Shortest signed angle from {@code current} to {@code target}, in [-π, π]. */
+    private static double shortestAngleDiff(double target, double current) {
+        double diff = (target - current) % (2 * Math.PI);
+        if (diff >  Math.PI) diff -= 2 * Math.PI;
+        if (diff < -Math.PI) diff += 2 * Math.PI;
+        return diff;
     }
 }

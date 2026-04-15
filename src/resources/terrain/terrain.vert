@@ -42,4 +42,9 @@ void main() {
     vLighting       = clamp(totalLight, 0.0, 1.5);
     gl_FogFragCoord = abs(eyePos.z);
     gl_Position     = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+    // Required for user clip planes (GL_CLIP_PLANE0) to work with GLSL shaders.
+    // Without this, clip planes compare against gl_Position (clip space) rather
+    // than eye space, giving wrong results.
+    gl_ClipVertex   = eyePos;
 }

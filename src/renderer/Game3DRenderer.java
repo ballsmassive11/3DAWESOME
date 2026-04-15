@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.awt.*;
 import java.awt.event.*;
+import water.WaterRTT;
 
 /**
  * Responsible for the Java3D rendering pipeline: camera, scene setup, fog, and skybox.
@@ -36,6 +37,14 @@ public class Game3DRenderer {
     private DayNightCycle dayNightCycle;
     private boolean skyboxIsDay = true;
 
+    // Guard against calling setColor() on lights while the render structure is being rebuilt
+    // (e.g. during startup or after clearObjects/addObject). The RenderStructureUpdateThread
+    // will NPE in processLightChanged if it finds a render atom whose lightBin is not yet set.
+    // lightResumeTimeMs is set to Long.MAX_VALUE until setupScene() calls addBranchGraph, at
+    // which point it is reset to now+5s so the full warmup applies from when the scene goes live.
+    private volatile boolean lightUpdateEnabled = true;
+    private volatile long lightResumeTimeMs = Long.MAX_VALUE; // reset in setupScene() after addBranchGraph
+
     // Skybox cross-fade state
     private enum TransState { NONE, FADING_IN, FADING_OUT }
     private TransState transState = TransState.NONE;
@@ -43,6 +52,9 @@ public class Game3DRenderer {
     private float veilAlpha = 0f;
     // Each half (fade-in or fade-out) takes this many seconds
     private static final float TRANS_HALF_SECS = 7f;
+
+    // Tracks whether water RTT was active last frame; used to clear stale textures on disable
+    private boolean waterRttWasEnabled = false;
 
     // 3rd-person orbit camera
     private double camOrbitRadius = 5.0;
@@ -128,16 +140,34 @@ public class Game3DRenderer {
         dayNightCycle = new DayNightCycle();
 
         sceneBG.addChild(new WorldUpdateBehavior(world, this));
-        sceneBG.compile();
         universe.addBranchGraph(sceneBG);
+        // Start the warmup timer now that the scene is live. lightResumeTimeMs was held at
+        // Long.MAX_VALUE until this point so no light updates could slip through during
+        // canvas/GL initialization (which can take ~1s and would have eaten the old 3s budget).
+        lightResumeTimeMs = System.currentTimeMillis() + 5000;
+
+        WaterRTT rtt = world.getWaterRTT();
+        if (rtt != null) {
+            GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
+            try { rtt.init(universe, config); }
+            catch (Exception e) { System.err.println("WaterRTT init failed: " + e.getMessage()); }
+        }
     }
 
     // -------------------------------------------------------------------------
     // Per-frame update
     // -------------------------------------------------------------------------
 
+    /** Call before large scene mutations (clearObjects, bulk addObject). */
+    public void notifySceneChanging() { lightUpdateEnabled = false; }
+
+    /** Call after scene mutations are complete. Waits 4s before resuming light updates. */
+    public void notifySceneReady()    { lightResumeTimeMs = System.currentTimeMillis() + 4000; lightUpdateEnabled = true; }
+
     public void updateDayNight(double deltaTime) {
         if (dayNightCycle == null) return;
+        if (!lightUpdateEnabled) return;
+        if (System.currentTimeMillis() < lightResumeTimeMs) return;
         dayNightCycle.update(deltaTime);
 
         world.getLighting().setAmbientColor(dayNightCycle.getAmbientColor());
@@ -214,6 +244,17 @@ public class Game3DRenderer {
         transform.mul(rotation, transform);
         transform.setTranslation(new Vector3d(camX, camY, camZ));
         viewTransformGroup.setTransform(transform);
+
+        WaterRTT rtt = world.getWaterRTT();
+        if (rtt != null && rtt.isInitialized()) {
+            rtt.setScreenSize(canvas.getWidth(), canvas.getHeight());
+            try { rtt.update(camX, camY, camZ, yaw, pitch); }
+            catch (Exception ignored) {}
+
+            boolean waterEnabled = GameSettings.quality >= GameSettings.WATER_RENDER_THRESHOLD;
+            if (!waterEnabled && waterRttWasEnabled) rtt.resetTextures();
+            waterRttWasEnabled = waterEnabled;
+        }
     }
 
     public void syncCamera() { syncCamera(0); }
@@ -374,6 +415,7 @@ public class Game3DRenderer {
 
     public DayNightCycle getDayNightCycle() { return dayNightCycle; }
     public Canvas3D getCanvas() { return canvas; }
+    public GuiCanvas getGuiCanvas() { return canvas; }
     public SimpleUniverse getUniverse() { return universe; }
 
     public void cleanup() {
