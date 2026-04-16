@@ -6,9 +6,6 @@ import objects.BaseObject;
 import objects.MeshObject;
 import physics.AABB;
 import physics.TerrainHeightProvider;
-import water.WaterHandlerLegacy;
-import water.WaterRTT;
-
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.util.ArrayList;
@@ -24,8 +21,6 @@ public class World {
     private Color3f backgroundColor;
     private final Lighting lighting;
     private final Player player;
-    private WaterHandlerLegacy waterHandlerLegacy;
-    private WaterRTT waterRTT;
     private boolean hitboxesVisible = false;
     private int seed = 0;
 
@@ -61,7 +56,6 @@ public class World {
         objects.clear();
         for (BranchGroup lg : lightNodes) lg.detach();
         lightNodes.clear();
-        waterHandlerLegacy = null;
         player.setTerrainProvider(null);
         for (Entity e : entities) e.setTerrainProvider(null);
         // Keep the player model in the scene and tracked in the object list
@@ -157,9 +151,6 @@ public class World {
     // Misc
     // ------------------------------------------------------------------
 
-    public void setWaterHandler(WaterHandlerLegacy wh) { this.waterHandlerLegacy = wh; }
-    public void setWaterRTT(WaterRTT rtt)              { this.waterRTT = rtt; }
-    public WaterRTT getWaterRTT()                      { return waterRTT; }
     public int  getSeed()          { return seed; }
     public void setSeed(int seed)  { this.seed = seed; }
     public Lighting getLighting()  { return lighting; }
@@ -186,8 +177,6 @@ public class World {
 
         // Animate static objects
         for (BaseObject obj : new ArrayList<>(objects)) obj.update(deltaTime);
-
-        if (waterHandlerLegacy != null) waterHandlerLegacy.update(deltaTime);
     }
 
     // ------------------------------------------------------------------

@@ -16,7 +16,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.awt.*;
 import java.awt.event.*;
-import water.WaterRTT;
 
 /**
  * Responsible for the Java3D rendering pipeline: camera, scene setup, fog, and skybox.
@@ -52,9 +51,6 @@ public class Game3DRenderer {
     private float veilAlpha = 0f;
     // Each half (fade-in or fade-out) takes this many seconds
     private static final float TRANS_HALF_SECS = 7f;
-
-    // Tracks whether water RTT was active last frame; used to clear stale textures on disable
-    private boolean waterRttWasEnabled = false;
 
     // 3rd-person orbit camera
     private double camOrbitRadius = 5.0;
@@ -145,13 +141,6 @@ public class Game3DRenderer {
         // Long.MAX_VALUE until this point so no light updates could slip through during
         // canvas/GL initialization (which can take ~1s and would have eaten the old 3s budget).
         lightResumeTimeMs = System.currentTimeMillis() + 5000;
-
-        WaterRTT rtt = world.getWaterRTT();
-        if (rtt != null) {
-            GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
-            try { rtt.init(universe, config); }
-            catch (Exception e) { System.err.println("WaterRTT init failed: " + e.getMessage()); }
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -245,16 +234,6 @@ public class Game3DRenderer {
         transform.setTranslation(new Vector3d(camX, camY, camZ));
         viewTransformGroup.setTransform(transform);
 
-        WaterRTT rtt = world.getWaterRTT();
-        if (rtt != null && rtt.isInitialized()) {
-            rtt.setScreenSize(canvas.getWidth(), canvas.getHeight());
-            try { rtt.update(camX, camY, camZ, yaw, pitch); }
-            catch (Exception ignored) {}
-
-            boolean waterEnabled = GameSettings.quality >= GameSettings.WATER_RENDER_THRESHOLD;
-            if (!waterEnabled && waterRttWasEnabled) rtt.resetTextures();
-            waterRttWasEnabled = waterEnabled;
-        }
     }
 
     public void syncCamera() { syncCamera(0); }

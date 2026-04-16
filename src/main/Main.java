@@ -1,12 +1,12 @@
 package main;
 
-import gui.*;
 import objects.*;
 import world.*;
 import terrain.MapGenerator;
 import renderer.*;
 
 import javax.media.j3d.Appearance;
+import javax.media.j3d.Canvas3D;
 import javax.media.j3d.Material;
 import javax.vecmath.Color3f;
 import javax.swing.*;
@@ -76,10 +76,12 @@ public class Main {
 
 
 
+        final Canvas3D mainCanvas = renderer.getCanvas();
+
         JFrame frame = new JFrame("Ohio impressed");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setUndecorated(true); // must be set before pack/show
-        frame.add(renderer.getCanvas(), BorderLayout.CENTER);
+        frame.setUndecorated(true);
+        frame.add(mainCanvas);
         frame.pack();
 
         if (device.isFullScreenSupported()) {

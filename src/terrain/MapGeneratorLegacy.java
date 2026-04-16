@@ -2,7 +2,6 @@ package terrain;
 
 import objects.Brick;
 import util.FastNoiseLite;
-import water.WaterHandlerLegacy;
 import world.World;
 
 import javax.media.j3d.Appearance;
@@ -98,7 +97,6 @@ public class MapGeneratorLegacy {
         appearance.setTransparencyAttributes(new TransparencyAttributes(TransparencyAttributes.BLENDED, 0.5f));
 
         world.addObject(water);
-        world.setWaterHandler(new WaterHandlerLegacy(water, -10.2));
     }
 
     /** Height-based color gradient: sand → grass → forest → rock → snow */
