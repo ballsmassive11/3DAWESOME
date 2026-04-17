@@ -121,8 +121,8 @@ public class Game3DRenderer {
         Color3f dayFogColor   = new Color3f(0.9f,  0.9f,  0.9f);
         Color3f nightFogColor = new Color3f(0.03f, 0.03f, 0.10f);
 
-        skybox = new Skybox("/resources/skyboxes/cloudy_sky", "png", dayFogColor);
-        skybox.preloadNightSky("/resources/skyboxes/night2", "png", nightFogColor);
+        skybox = new Skybox("/skyboxes/cloudy_sky", "png", dayFogColor);
+        skybox.preloadNightSky("/skyboxes/night2", "png", nightFogColor);
 
         BranchGroup sceneBG = world.getSceneBranchGroup();
         sceneBG.addChild(skybox.getBackground());

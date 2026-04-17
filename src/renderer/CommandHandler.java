@@ -497,7 +497,7 @@ public class CommandHandler {
 
     /** Finds the first .obj file inside src/resources/models/<name>/ (case-insensitive). */
     private String resolveModelPath(String name) {
-        File modelsDir = new File("src/resources/models");
+        File modelsDir = new File("resources/models");
         if (!modelsDir.isDirectory()) return null;
         File[] dirs = modelsDir.listFiles(File::isDirectory);
         if (dirs == null) return null;
@@ -512,7 +512,7 @@ public class CommandHandler {
 
     /** Returns a comma-separated list of model folder names in src/resources/models/. */
     private String listAvailableModels() {
-        File modelsDir = new File("src/resources/models");
+        File modelsDir = new File("resources/models");
         if (!modelsDir.isDirectory()) return "(none)";
         File[] dirs = modelsDir.listFiles(File::isDirectory);
         if (dirs == null || dirs.length == 0) return "(none)";

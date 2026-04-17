@@ -29,7 +29,7 @@ public class GuiCanvas extends Canvas3D {
      * </pre>
      */
     public static final BitmapFont ARIAL =
-        new BitmapFont("/resources/fonts/arial/arial.fnt");
+        new BitmapFont("/fonts/arial/arial.fnt");
 
     private volatile double fps = 0;
     private volatile double camX = 0, camY = 0, camZ = 0;
@@ -52,12 +52,12 @@ public class GuiCanvas extends Canvas3D {
     public GuiCanvas(GraphicsConfiguration config, World world) {
         super(config);
         this.world = world;
-        crosshair = new GuiTexture("/resources/gui/SreTransparentCrop.png");
+        crosshair = new GuiTexture("/gui/SreTransparentCrop.png");
         crosshair.setCentered(true);
         crosshair.setPosition(new GuiVec2(100f,0.1f,200f, 0.1f));
         crosshair.setSize(GuiVec2.ofOffset(250f, 300f));
 
-        joey = new GuiTexture("/resources/gui/joey.png");
+        joey = new GuiTexture("/gui/joey.png");
         joey.setCentered(true);
         joey.setPosition(new GuiVec2(100f,0.1f,200f, 0.5f));
         joey.setSize(GuiVec2.ofOffset(250f, 250));

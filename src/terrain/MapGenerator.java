@@ -30,8 +30,8 @@ import java.util.Random;
  */
 public class MapGenerator implements TerrainHeightProvider {
 
-    private static final String SHADER_DIR  = "src/resources/terrain/";
-    private static final String LAMP_PATH   = "src/resources/models/StreetLamp/streetlamp.obj";
+    private static final String SHADER_DIR  = "resources/terrain/";
+    private static final String LAMP_PATH   = "resources/models/StreetLamp/streetlamp.obj";
 
     // Hills terrain constants
     private static final float HILLS_BASE_Y = 2.0f;   // minimum hill height (above water)

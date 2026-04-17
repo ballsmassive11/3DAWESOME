@@ -299,7 +299,7 @@ public class BitmapFont {
     private static InputStream openResource(String path) throws IOException {
         InputStream is = BitmapFont.class.getResourceAsStream(path);
         if (is != null) return is;
-        File f = new File(path.startsWith("/") ? "src" + path : path);
+        File f = new File(path.startsWith("/") ? path.substring(1) : path);
         if (f.exists()) return new FileInputStream(f);
         throw new IOException("Resource not found: " + path);
     }

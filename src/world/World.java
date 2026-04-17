@@ -4,17 +4,24 @@ import entity.Entity;
 import entity.Player;
 import objects.BaseObject;
 import objects.MeshObject;
+import particles.Particle;
+import particles.ParticleRenderer;
 import physics.AABB;
 import physics.TerrainHeightProvider;
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class World {
     private final List<BaseObject>  objects    = new ArrayList<>();
     private final List<Entity>      entities   = new ArrayList<>();
     private final List<BranchGroup> lightNodes = new ArrayList<>();
+    private final ParticleRenderer  particleRenderer = new ParticleRenderer();
+    private final Random            rng        = new Random();
+    private double particleAccum = 0.0;
+    private static final double PARTICLES_PER_SEC = 60.0;
 
     private final BranchGroup sceneBranchGroup;
     private boolean lightsAdded = false;
@@ -177,6 +184,35 @@ public class World {
 
         // Animate static objects
         for (BaseObject obj : new ArrayList<>(objects)) obj.update(deltaTime);
+
+        // Particles
+        emitPlayerParticles(deltaTime);
+        particleRenderer.update(deltaTime, player.getCamera().getYaw(), player.getCamera().getPitch());
+    }
+
+    private static final float EYE_HEIGHT = 1.7f;
+
+    private void emitPlayerParticles(double dt) {
+        particleAccum += PARTICLES_PER_SEC * dt;
+        int toEmit = (int) particleAccum;
+        particleAccum -= toEmit;
+
+        javax.vecmath.Vector3d eye = player.getCamera().getPosition();
+        for (int i = 0; i < toEmit; i++) {
+            javax.vecmath.Vector3d pos = new javax.vecmath.Vector3d(
+                    eye.x + (rng.nextDouble() - 0.5) * 0.3,
+                    eye.y - EYE_HEIGHT + 0.1,
+                    eye.z + (rng.nextDouble() - 0.5) * 0.3);
+            javax.vecmath.Vector3d vel = new javax.vecmath.Vector3d(
+                    (rng.nextDouble() - 0.5) * 1.2,
+                    5.5 + rng.nextDouble() * 1.5,
+                    (rng.nextDouble() - 0.5) * 1.2);
+            Color4f start = new Color4f(1.0f, 1.0f, 1.0f, 1.0f);
+            Color4f end   = new Color4f(1.0f, 1.0f, 1.0f, 0.0f);
+            float size    = 0.4f + rng.nextFloat() * 0.2f;
+            particleRenderer.emit(new Particle(pos, vel, start, end, size, 0f,
+                    0.8f + rng.nextFloat() * 0.6f, 1.0f, 120f * (rng.nextFloat() - 0.5f), 0));
+        }
     }
 
     // ------------------------------------------------------------------
@@ -186,6 +222,7 @@ public class World {
     public BranchGroup getSceneBranchGroup() {
         if (!lightsAdded) {
             lighting.addToScene(sceneBranchGroup);
+            sceneBranchGroup.addChild(particleRenderer.getBranchGroup());
             lightsAdded = true;
         }
         return sceneBranchGroup;

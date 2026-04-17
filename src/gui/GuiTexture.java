@@ -15,7 +15,7 @@ import java.io.InputStream;
  * corner of the image unless {@code centered} is true.
  *
  * <pre>
- *   GuiTexture crosshair = new GuiTexture("/resources/gui/crosshair.png");
+ *   GuiTexture crosshair = new GuiTexture("/gui/crosshair.png");
  *   crosshair.setCentered(true);
  *   crosshair.setPosition(GuiVec2.ofScale(0.5f, 0.5f)); // middle of screen
  *   crosshair.setSize(GuiVec2.ofOffset(64, 64));         // fixed 64×64 px
@@ -46,7 +46,7 @@ public class GuiTexture {
 
     /**
      * Creates a GuiTexture from a file system path or a classpath resource path.
-     * Classpath resources must start with {@code /} (e.g. {@code /resources/gui/icon.png}).
+     * Classpath resources must start with {@code /} (e.g. {@code /gui/icon.png}).
      *
      * @param path path to a PNG or JPG image
      * @throws RuntimeException if the image cannot be loaded
@@ -85,7 +85,7 @@ public class GuiTexture {
             if (loaded == null) {
                 File file = new File(path);
                 if (!file.exists() && path.startsWith("/")) {
-                    file = new File("src" + path);
+                    file = new File(path.substring(1));
                 }
                 if (file.exists()) {
                     loaded = ImageIO.read(file);

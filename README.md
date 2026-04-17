@@ -5,32 +5,31 @@ A Java3D-based 3D game engine with procedurally generated terrain, physics, and 
 ## Features
 
 - **Procedural terrain** — OpenSimplex2 noise with domain warping; biome shader blends sand, grass, rock, and snow by height
-- **Animated water** — transparent water plane with normal-mapped surface distortion
 - **OBJ model loading** — MTL material support with model caching
 - **3rd-person orbit camera** — pitch/yaw orbits around the player; pulls in when occluded by terrain
 - **Entity & physics system** — gravity, jumping, slope limiting, step-up, and capsule vs AABB collision
 - **Day/night cycle** — smooth 120 s cycle; ambient/directional lighting, fog, and skybox update continuously
 - **Distance fog** — fades geometry into the sky colour over the back half of the render distance
 - **HUD** — real-time FPS, position, orientation, object/triangle counts
-- **In-game command console** — press `T` to open; spawn objects, adjust settings, and more at runtime
+- **In-game command console** — press `/` to open; spawn objects, adjust settings, and more at runtime
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
+| Key       | Action |
+|-----------|--------|
 | `W` / `S` | Move forward / backward |
 | `A` / `D` | Strafe left / right |
-| `Space` | Jump / ascend (flying) |
-| `Shift` | Descend (flying) |
-| `← / →` | Yaw left / right |
-| `↑ / ↓` | Pitch up / down |
+| `Space`   | Jump / ascend (flying) |
+| `Shift`   | Descend (flying) |
+| `← / →`   | Yaw left / right |
+| `↑ / ↓`   | Pitch up / down |
 | `I` / `O` | Zoom in / out |
-| `T` | Open command console |
-| `Esc` | Quit |
+| `/`       | Open command console |
+| `Esc`     | Quit |
 
 ## Commands
 
-Press `T` to open the console. Common commands:
+Press `/` to open the console. Common commands:
 
 | Command | Description |
 |---------|-------------|
