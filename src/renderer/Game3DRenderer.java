@@ -106,9 +106,11 @@ public class Game3DRenderer {
         });
 
         universe = new SimpleUniverse(canvas);
-        universe.getViewer().getView().setFieldOfView(fov);
-        universe.getViewer().getView().setBackClipDistance(renderDistance);
-        universe.getViewer().getView().setFrontClipDistance(0.05);
+        View view = universe.getViewer().getView();
+        view.setFieldOfView(fov);
+        view.setBackClipDistance(renderDistance);
+        view.setFrontClipDistance(0.05);
+        view.setTransparencySortingPolicy(View.TRANSPARENCY_SORT_GEOMETRY);
 
         viewingPlatform = universe.getViewingPlatform();
         viewTransformGroup = viewingPlatform.getViewPlatformTransform();
@@ -137,6 +139,7 @@ public class Game3DRenderer {
 
         sceneBG.addChild(new WorldUpdateBehavior(world, this));
         universe.addBranchGraph(sceneBG);
+
         // Start the warmup timer now that the scene is live. lightResumeTimeMs was held at
         // Long.MAX_VALUE until this point so no light updates could slip through during
         // canvas/GL initialization (which can take ~1s and would have eaten the old 3s budget).
@@ -222,8 +225,7 @@ public class Game3DRenderer {
 
         double r = idealR * occlusionT(lookAt, idealX, idealY, idealZ);
         double camX = lookAt.x + sinY * cosP * r;
-        // Keep camera above the water surface (WATER_SURFACE_Y ≈ -0.1)
-        double camY = Math.max(lookAt.y - sinP * r, 1.5);
+        double camY = lookAt.y - sinP * r;
         double camZ = lookAt.z + cosY * cosP * r;
 
         Transform3D transform = new Transform3D();
@@ -395,6 +397,8 @@ public class Game3DRenderer {
     public DayNightCycle getDayNightCycle() { return dayNightCycle; }
     public Canvas3D getCanvas() { return canvas; }
     public GuiCanvas getGuiCanvas() { return canvas; }
+    /** Returns the main ViewPlatform TransformGroup (used by the water RTT system). */
+    public TransformGroup getViewTransformGroup() { return viewTransformGroup; }
     public SimpleUniverse getUniverse() { return universe; }
 
     public void cleanup() {

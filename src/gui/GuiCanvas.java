@@ -95,23 +95,18 @@ public class GuiCanvas extends Canvas3D {
     /** Removes all {@link GuiText} elements. */
     public void clearTexts()             { texts.clear(); }
 
+    /**
+     * Runs before each 3D frame, in the renderer thread with GL context current.
+     */
+    @Override
+    public void preRender() {
+        resetGlShaderState();
+    }
+
     @Override
     public void postRender() {
-        // The terrain/water ShaderAppearances leave texture units and the GLSL program
-        // bound, which causes J3DGraphics2D to render 2D shapes with active shaders
-        // (HUD invisible, or a screen-space lighting cone from the water shader).
         // Reset texture units AND unbind the shader program before drawing the overlay.
-        try {
-            GL2 gl = GLContext.getCurrent().getGL().getGL2();
-            gl.glUseProgram(0);
-            for (int i = 3; i >= 0; i--) {
-                gl.glActiveTexture(GL2.GL_TEXTURE0 + i);
-                gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
-                gl.glDisable(GL2.GL_TEXTURE_2D);
-            }
-            gl.glActiveTexture(GL2.GL_TEXTURE0);
-
-        } catch (Exception ignored) {}
+        resetGlShaderState();
 
         J3DGraphics2D g2d = getGraphics2D();
 
@@ -123,6 +118,19 @@ public class GuiCanvas extends Canvas3D {
         if (debugVisible) drawDebugPanel(g2d);
         commandHud.draw(g2d, getWidth(), getHeight());
         g2d.flush(false);
+    }
+
+    private void resetGlShaderState() {
+        try {
+            GL2 gl = GLContext.getCurrent().getGL().getGL2();
+            gl.glUseProgram(0);
+            for (int i = 3; i >= 0; i--) {
+                gl.glActiveTexture(GL2.GL_TEXTURE0 + i);
+                gl.glBindTexture(GL2.GL_TEXTURE_2D, 0);
+                gl.glDisable(GL2.GL_TEXTURE_2D);
+            }
+            gl.glActiveTexture(GL2.GL_TEXTURE0);
+        } catch (Exception ignored) {}
     }
 
     private void drawDebugPanel(Graphics2D g2) {

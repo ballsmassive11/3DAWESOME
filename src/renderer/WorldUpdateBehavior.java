@@ -18,6 +18,7 @@ public class WorldUpdateBehavior extends Behavior {
     private final WakeupOnElapsedFrames wakeup = new WakeupOnElapsedFrames(0);
     private long lastTime;
     private Game3DRenderer renderer;
+    private double totalTime = 0.0;
 
     public WorldUpdateBehavior(World world) {
         this(world, null);
@@ -45,6 +46,7 @@ public class WorldUpdateBehavior extends Behavior {
         if (deltaTime < 0) deltaTime = 0;
         
         lastTime = now;
+        totalTime += deltaTime;
         world.update(deltaTime);
 
         if (renderer != null) {

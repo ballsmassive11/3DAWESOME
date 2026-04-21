@@ -4,7 +4,7 @@ import objects.MeshObject;
 import objects.TerrainMesh;
 import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
-import water.WaterPlane;
+import water.WaterTile;
 import world.World;
 
 import com.sun.j3d.utils.image.TextureLoader;
@@ -34,9 +34,9 @@ public class MapGenerator implements TerrainHeightProvider {
     private static final String LAMP_PATH   = "resources/models/StreetLamp/streetlamp.obj";
 
     // Hills terrain constants
-    private static final float HILLS_BASE_Y = 2.0f;   // minimum hill height (above water)
-    private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
-    private static final float RIVER_WIDTH  = 0.35f;  // |riverNoise| threshold for channel width
+    private static final float HILLS_BASE_Y = 1.0f;   // minimum hill height (above water)
+    private static final float RIVER_BOTTOM = -1.0f;  // river-bed height (below water → looks filled)
+    private static final float RIVER_WIDTH  = 0.55f;  // |riverNoise| threshold for channel width
     private static final int   LAMP_SPACING = 25;     // grid cells between streetlamp sample points
     private static final double LAMP_SCALE  = 4.0;    // uniform scale applied to each lamp
 
@@ -152,7 +152,17 @@ public class MapGenerator implements TerrainHeightProvider {
             }
         }
 
-        WaterPlane.create(world, gridSize, zOffset);
+        // Tile the water surface across the terrain using WaterTile-sized quads.
+        float terrainSize = gridSize * cellSize;
+        int tilesPerAxis = (int) Math.ceil(terrainSize / WaterTile.TILE_SIZE);
+        float tileStart  = -(tilesPerAxis - 1) * WaterTile.TILE_SIZE / 2f;
+        for (int row = 0; row < tilesPerAxis; row++) {
+            for (int col = 0; col < tilesPerAxis; col++) {
+                float cx = tileStart + col * WaterTile.TILE_SIZE;
+                float cz = tileStart + row * WaterTile.TILE_SIZE + zOffset;
+                world.addObject(new WaterTile(cx, cz));
+            }
+        }
         world.setTerrainProvider(this);
 
         if ("hills".equals(terrainType)) {
@@ -245,9 +255,6 @@ public class MapGenerator implements TerrainHeightProvider {
                 jc = Math.max(0, Math.min(cols - 1, jc));
 
                 float height = heights[jr * cols + jc];
-
-                // Skip cells that are at or near water level
-                if (height <= WaterPlane.WATER_SURFACE_Y + 1.5f) continue;
 
                 // Skip cells that are too close to a river channel
                 float nx = (jc - cols / 2f) * cellSize;

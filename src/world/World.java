@@ -8,6 +8,8 @@ import particles.Particle;
 import particles.ParticleRenderer;
 import physics.AABB;
 import physics.TerrainHeightProvider;
+import water.WaterTile;
+
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.util.ArrayList;
@@ -21,9 +23,10 @@ public class World {
     private final ParticleRenderer  particleRenderer = new ParticleRenderer();
     private final Random            rng        = new Random();
     private double particleAccum = 0.0;
-    private static final double PARTICLES_PER_SEC = 60.0;
+    private static final double PARTICLES_PER_SEC = 10.0;
 
     private final BranchGroup sceneBranchGroup;
+    private final OrderedGroup rootOrderedGroup;
     private boolean lightsAdded = false;
     private Color3f backgroundColor;
     private final Lighting lighting;
@@ -35,6 +38,12 @@ public class World {
         this.sceneBranchGroup = new BranchGroup();
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_EXTEND);
         this.sceneBranchGroup.setCapability(BranchGroup.ALLOW_CHILDREN_WRITE);
+
+        this.rootOrderedGroup = new OrderedGroup();
+        this.rootOrderedGroup.setCapability(Group.ALLOW_CHILDREN_EXTEND);
+        this.rootOrderedGroup.setCapability(Group.ALLOW_CHILDREN_WRITE);
+        this.sceneBranchGroup.addChild(rootOrderedGroup);
+
         this.backgroundColor = new Color3f(0.8f, 0.8f, 0.9f);
         this.player  = new Player();
         this.lighting = new Lighting();
@@ -46,7 +55,11 @@ public class World {
 
     public void addObject(BaseObject object) {
         objects.add(object);
-        sceneBranchGroup.addChild(object.getBranchGroup());
+        if (object instanceof WaterTile) {
+            rootOrderedGroup.insertChild(object.getBranchGroup(), 0);
+        } else {
+            rootOrderedGroup.addChild(object.getBranchGroup());
+        }
         object.setHitboxVisible(hitboxesVisible);
     }
 
@@ -78,14 +91,14 @@ public class World {
         lg.setCapability(BranchGroup.ALLOW_DETACH);
         lg.addChild(light);
         lightNodes.add(lg);
-        sceneBranchGroup.addChild(lg);
+        rootOrderedGroup.addChild(lg);
     }
 
     /** Adds a raw BranchGroup to the scene, tracked so it is removed on clearObjects(). */
     public void addNode(BranchGroup node) {
         node.setCapability(BranchGroup.ALLOW_DETACH);
         lightNodes.add(node);
-        sceneBranchGroup.addChild(node);
+        rootOrderedGroup.addChild(node);
     }
 
     public List<BaseObject> getObjects() {
@@ -187,7 +200,9 @@ public class World {
 
         // Particles
         emitPlayerParticles(deltaTime);
-        particleRenderer.update(deltaTime, player.getCamera().getYaw(), player.getCamera().getPitch());
+        Vector3d camPos = player.getCamera().getPosition();
+        particleRenderer.update(deltaTime, player.getCamera().getYaw(), player.getCamera().getPitch(),
+                camPos.x, camPos.y, camPos.z);
     }
 
     private static final float EYE_HEIGHT = 1.7f;
@@ -204,14 +219,19 @@ public class World {
                     eye.y - EYE_HEIGHT + 0.1,
                     eye.z + (rng.nextDouble() - 0.5) * 0.3);
             javax.vecmath.Vector3d vel = new javax.vecmath.Vector3d(
-                    (rng.nextDouble() - 0.5) * 1.2,
+                    (rng.nextDouble() - 0.5) * 2.2,
                     5.5 + rng.nextDouble() * 1.5,
-                    (rng.nextDouble() - 0.5) * 1.2);
+                    (rng.nextDouble() - 0.5) * 2.2);
             Color4f start = new Color4f(1.0f, 1.0f, 1.0f, 1.0f);
             Color4f end   = new Color4f(1.0f, 1.0f, 1.0f, 0.0f);
-            float size    = 0.4f + rng.nextFloat() * 0.2f;
+            float size    = 1.4f + rng.nextFloat() * 0.2f;
+
+            String particleName = "resources/particles/joeyParticle.png";
+            if (rng.nextFloat() < 0.5f) particleName = "resources/particles/happyhappyhappy.png";
+
             particleRenderer.emit(new Particle(pos, vel, start, end, size, 0f,
-                    0.8f + rng.nextFloat() * 0.6f, 1.0f, 120f * (rng.nextFloat() - 0.5f), 0));
+                    0.8f + rng.nextFloat() * 0.6f, 1.0f, 120f * (rng.nextFloat() - 0.5f),
+                    0, particleName));
         }
     }
 
@@ -222,7 +242,8 @@ public class World {
     public BranchGroup getSceneBranchGroup() {
         if (!lightsAdded) {
             lighting.addToScene(sceneBranchGroup);
-            sceneBranchGroup.addChild(particleRenderer.getBranchGroup());
+            // Add particles to rootOrderedGroup so they render after world objects
+            rootOrderedGroup.addChild(particleRenderer.getBranchGroup());
             lightsAdded = true;
         }
         return sceneBranchGroup;
