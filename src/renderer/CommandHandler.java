@@ -111,14 +111,13 @@ public class CommandHandler {
 
         } else if (cmd.equals("quality")) { // changes game quality
             if (parts.length < 2) {
-                hud.logOutput("Quality: " + GameSettings.quality + "/10  (water renders at >= " + GameSettings.WATER_RENDER_THRESHOLD + ")");
+                hud.logOutput("Quality: " + GameSettings.quality + "/10");
             } else {
                 try {
                     int level = Integer.parseInt(parts[1]);
                     level = Math.max(1, Math.min(10, level));
                     GameSettings.quality = level;
-                    boolean waterOn = level >= GameSettings.WATER_RENDER_THRESHOLD;
-                    hud.logOutput("Quality set to " + level + "/10  (water reflections: " + (waterOn ? "ON" : "OFF") + ")");
+                    hud.logOutput("Quality set to " + level + "/10");
                 } catch (NumberFormatException ignored) {
                     hud.logOutput("Usage: quality <1-10>");
                 }
@@ -160,7 +159,7 @@ public class CommandHandler {
             hud.logOutput("time <0.0-1.0>          - Set time (0=midnight 0.25=dawn 0.5=noon 0.75=dusk)");
             hud.logOutput("time pause|resume        - Pause or resume the day/night cycle");
             hud.logOutput("time speed <secs>       - Set cycle duration in seconds (default 120)");
-            hud.logOutput("quality <1-10>          - Set game quality (water reflections require >= " + GameSettings.WATER_RENDER_THRESHOLD + ")");
+            hud.logOutput("quality <1-10>          - Set game quality");
             hud.logOutput("fun                     - would recommend turning render distance down");
             hud.logOutput("cmds / help             - Show this message");
 

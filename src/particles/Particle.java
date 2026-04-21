@@ -3,7 +3,6 @@ package particles;
 import javax.vecmath.Color4f;
 import javax.vecmath.Vector3d;
 
-
 /**
  * A single particle: lightweight data + per-frame update.
  * No Java3D scene-graph nodes; ParticleRenderer owns those.
@@ -19,9 +18,9 @@ public class Particle {
     public final Color4f endColor;
     /** Current interpolated RGBA (updated each frame). */
     public final Color4f color;
-    /** World-space point size at birth (pixels). */
+    /** Billboard size at birth (world units). */
     public float startSize;
-    /** World-space point size at death. */
+    /** Billboard size at death. */
     public float endSize;
     /** Current size (updated each frame). */
     public float size;
@@ -39,18 +38,25 @@ public class Particle {
 
     /**
      * Index into the texture atlas grid (0 = top-left sprite).
-     * With a 4×4 atlas: 0–15. Defaults to 0 (solid white, particle uses vertex color).
+     * Ignored when atlasPath is null (colored particle).
      */
     public final int spriteIndex;
+
+    /**
+     * Path to the atlas PNG used by this particle (e.g. {@code "resources/particles/fire.png"}).
+     * Null means no texture — the particle renders as a plain colored quad using vertex color only.
+     * The ParticleRenderer creates one batch per unique atlasPath.
+     */
+    public final String atlasPath;
 
     /** Gravity constant used by update() (m/s²). */
     public static final double GRAVITY = -9.8;
 
     // -------------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-
     /**
+     * Full constructor.
+     *
      * @param position      Spawn position (copied).
      * @param velocity      Initial velocity (copied).
      * @param startColor    RGBA tint at birth (multiplied with the atlas sprite).
@@ -60,13 +66,14 @@ public class Particle {
      * @param lifetime      Seconds until dead.
      * @param gravityScale  Fraction of gravity to apply (0–1 typical).
      * @param rotationSpeed Degrees per second of billboard spin.
-     * @param spriteIndex   Sprite slot in the atlas (0 = top-left; default atlas is 4×4 = 0–15).
+     * @param spriteIndex   Sprite slot in the atlas grid (0 = top-left).
+     * @param atlasPath     Path to the atlas PNG, or null for a solid-color particle.
      */
     public Particle(Vector3d position, Vector3d velocity,
                     Color4f startColor, Color4f endColor,
                     float startSize, float endSize,
                     float lifetime, float gravityScale, float rotationSpeed,
-                    int spriteIndex) {
+                    int spriteIndex, String atlasPath) {
         this.position      = new Vector3d(position);
         this.velocity      = new Vector3d(velocity);
         this.startColor    = new Color4f(startColor);
@@ -79,22 +86,23 @@ public class Particle {
         this.gravityScale  = gravityScale;
         this.rotationSpeed = rotationSpeed;
         this.spriteIndex   = spriteIndex;
+        this.atlasPath     = atlasPath;
         this.age           = 0f;
     }
 
-    /** Convenience: sprite particle, white tint fading to transparent, half gravity, no spin. */
+    /** Image particle: whole atlas image is sprite 0, white tint fading to transparent, half gravity, no spin. */
     public Particle(Vector3d position, Vector3d velocity,
-                    int spriteIndex, float size, float lifetime) {
+                    String atlasPath, float size, float lifetime) {
         this(position, velocity,
              new Color4f(1f, 1f, 1f, 1f), new Color4f(1f, 1f, 1f, 0f),
-             size, 0f, lifetime, 0.5f, 0f, spriteIndex);
+             size, 0f, lifetime, 0.5f, 0f, 0, atlasPath);
     }
 
-    /** Convenience: solid color, no spin, half gravity, sprite 0 (solid white = pure vertex color). */
+    /** Solid-color particle: no atlas, no spin, half gravity. */
     public Particle(Vector3d position, Vector3d velocity,
                     Color4f color, float size, float lifetime) {
         this(position, velocity, color, new Color4f(color.x, color.y, color.z, 0f),
-             size, 0f, lifetime, 0.5f, 0f, 0);
+             size, 0f, lifetime, 0.5f, 0f, 0, null);
     }
 
     // -------------------------------------------------------------------------
