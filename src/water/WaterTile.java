@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 public class WaterTile extends BaseObject {
     public static final float WATER_HEIGHT = -0.5f;
     public static final float TILE_SIZE = 64.0f;
+    public static final float TILING = 0.3f;
 
     public WaterTile(float x, float z) {
         super();
@@ -35,9 +36,9 @@ public class WaterTile extends BaseObject {
         
         TexCoord2f[] texCoords = {
             new TexCoord2f(0, 0),
-            new TexCoord2f(0, 1),
-            new TexCoord2f(1, 1),
-            new TexCoord2f(1, 0)
+            new TexCoord2f(0, TILING),
+            new TexCoord2f(TILING, TILING),
+            new TexCoord2f(TILING, 0)
         };
         
         Vector3f[] normals = {
