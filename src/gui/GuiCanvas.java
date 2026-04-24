@@ -54,6 +54,9 @@ public class GuiCanvas extends Canvas3D {
     /** User-managed text elements drawn every frame. Thread-safe. */
     private final List<GuiText> texts = new CopyOnWriteArrayList<>();
 
+    /** User-managed frame elements drawn every frame. Thread-safe. */
+    private final List<GuiFrame> frames = new CopyOnWriteArrayList<>();
+
     public GuiCanvas(GraphicsConfiguration config, World world) {
         super(config);
         this.world = world;
@@ -100,6 +103,19 @@ public class GuiCanvas extends Canvas3D {
     /** Removes all {@link GuiText} elements. */
     public void clearTexts()             { texts.clear(); }
 
+    // ------------------------------------------------------------------ //
+    // Frame management                                                    //
+    // ------------------------------------------------------------------ //
+
+    /** Adds a {@link GuiFrame} element to be drawn every frame. */
+    public void addFrame(GuiFrame frame)    { frames.add(frame); }
+
+    /** Removes a previously added {@link GuiFrame} element. */
+    public void removeFrame(GuiFrame frame) { frames.remove(frame); }
+
+    /** Removes all {@link GuiFrame} elements. */
+    public void clearFrames()             { frames.clear(); }
+
     /**
      * Runs before each 3D frame, in the renderer thread with GL context current.
      */
@@ -117,6 +133,11 @@ public class GuiCanvas extends Canvas3D {
 
         crosshair.draw(g2d, getWidth(), getHeight());
         joey.draw(g2d, getWidth(), getHeight());
+
+        for (GuiFrame f : frames) {
+            f.draw(g2d, getWidth(), getHeight());
+            resetGlShaderState();
+        }
 
         for (GuiText t : texts) {
             t.draw(g2d, getWidth(), getHeight());

@@ -103,6 +103,11 @@ public class Main {
         welcomeText.setLetterSpacing(-2f);
         gui.addText(welcomeText);
 
+        GuiFrame textBg = new GuiFrame(Vector2.ofScale(0.5f, 0.1f), Vector2.ofOffset(500, 100), new Color(0, 0, 0, 128));
+        textBg.setCentered(true);
+        textBg.setRotation(5.0); // Slightly rotated as requested
+        gui.addFrame(textBg);
+
         final Canvas3D mainCanvas = renderer.getCanvas();
 
         JFrame frame = new JFrame("Ohio impressed");
