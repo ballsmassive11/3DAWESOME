@@ -5,7 +5,6 @@ import gui.GuiCanvas;
 import renderer.skybox.Skybox;
 import objects.BaseObject;
 import world.*;
-
 import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.universe.SimpleUniverse;

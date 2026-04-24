@@ -26,6 +26,7 @@ public class GuiText {
     private BitmapFont font;
     private Vector2 position;
     private float pixelHeight = 32f;
+    private float letterSpacing = 0f; // extra pixels between characters
     private Color color = Color.WHITE;
     private boolean visible = true;
 
@@ -36,6 +37,8 @@ public class GuiText {
     }
 
     public void setPixelHeight(float height) { this.pixelHeight = height; }
+    public void setLetterSpacing(float spacing) { this.letterSpacing = spacing; }
+    public float getLetterSpacing() { return letterSpacing; }
     public void setColor(Color color) { this.color = color; }
 
     public void draw(J3DGraphics2D g2d, int screenWidth, int screenHeight) {
@@ -87,7 +90,7 @@ public class GuiText {
         float totalWidth = 0;
         for (char c : text.toCharArray()) {
             BitmapFont.CharData charData = font.getChar(c);
-            if (charData != null) totalWidth += charData.xadvance * scale;
+            if (charData != null) totalWidth += charData.xadvance * scale + letterSpacing;
         }
         if (position.xScale > 0.49f && position.xScale < 0.51f) {
             curX -= totalWidth / 2f;
@@ -118,7 +121,7 @@ public class GuiText {
             gl.glTexCoord2f(u1, v1); gl.glVertex2f(x1, y1);
             gl.glTexCoord2f(u0, v1); gl.glVertex2f(x0, y1);
 
-            curX += charData.xadvance * scale;
+            curX += charData.xadvance * scale + letterSpacing;
         }
         gl.glEnd();
 

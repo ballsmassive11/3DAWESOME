@@ -97,15 +97,11 @@ public class Main {
         Game3DRenderer renderer = new Game3DRenderer(world);
 
         GuiCanvas gui = renderer.getGuiCanvas();
-        GuiText welcomeText = new GuiText(GuiCanvas.ARIAL, "3D AWESOME ENGINE", Vector2.ofScale(0.5f, 0.1f));
+        GuiText welcomeText = new GuiText(GuiCanvas.ARIAL, "Ohio Impressed", Vector2.ofScale(0.5f, 0.1f));
         welcomeText.setPixelHeight(64f);
         welcomeText.setColor(new Color(255, 200, 0));
+        welcomeText.setLetterSpacing(-2f);
         gui.addText(welcomeText);
-
-        GuiText subText = new GuiText(GuiCanvas.ARIAL, "Distance Field Text Enabled", Vector2.ofScale(0.5f, 0.18f));
-        subText.setPixelHeight(32f);
-        subText.setColor(Color.WHITE);
-        gui.addText(subText);
 
         final Canvas3D mainCanvas = renderer.getCanvas();
 
