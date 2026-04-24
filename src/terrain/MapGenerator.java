@@ -2,6 +2,8 @@ package terrain;
 
 import objects.MeshObject;
 import objects.TerrainMesh;
+import particles.ParticleEmitter;
+import physics.AABB;
 import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
 import water.WaterTile;
@@ -32,13 +34,19 @@ public class MapGenerator implements TerrainHeightProvider {
 
     private static final String SHADER_DIR  = "resources/terrain/";
     private static final String LAMP_PATH   = "resources/models/StreetLamp/streetlamp.obj";
+    private static final String TREE_PATH   = "resources/models/Tree/Lowpoly_tree_sample.obj";
 
     // Hills terrain constants
-    private static final float HILLS_BASE_Y = 1.0f;   // minimum hill height (above water)
-    private static final float RIVER_BOTTOM = -1.0f;  // river-bed height (below water → looks filled)
-    private static final float RIVER_WIDTH  = 0.55f;  // |riverNoise| threshold for channel width
+    private static final float HILLS_BASE_Y = 0.3f;   // minimum hill height (above water)
+    private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
+    private static final float RIVER_WIDTH  = 0.40f;  // |riverNoise| threshold for channel width
     private static final int   LAMP_SPACING = 25;     // grid cells between streetlamp sample points
     private static final double LAMP_SCALE  = 4.0;    // uniform scale applied to each lamp
+
+    // Tree spawning constants
+    private static final float TREE_DENSITY = 0.01f;  // probability of a tree per cell
+    private static final double TREE_SCALE_MIN = 4.5;
+    private static final double TREE_SCALE_MAX = 7.5;
 
     // ------------------------------------------------------------------
     // Noise generators
@@ -102,14 +110,14 @@ public class MapGenerator implements TerrainHeightProvider {
         riverWarp.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
         riverWarp.SetDomainWarpType(FastNoiseLite.DomainWarpType.OpenSimplex2Reduced);
         riverWarp.SetDomainWarpAmp(22f);
-        riverWarp.SetFrequency(0.016f);
+        riverWarp.SetFrequency(0.005f);
         riverWarp.SetFractalType(FastNoiseLite.FractalType.DomainWarpIndependent);
         riverWarp.SetFractalOctaves(2);
 
         // --- river channels: very low frequency so rivers are long and winding ---
         riverNoise = new FastNoiseLite();
         riverNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-        riverNoise.SetFrequency(0.011f);
+        riverNoise.SetFrequency(0.009f);
         riverNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         riverNoise.SetFractalOctaves(2);
         riverNoise.SetFractalLacunarity(2.0f);
@@ -168,6 +176,7 @@ public class MapGenerator implements TerrainHeightProvider {
         if ("hills".equals(terrainType)) {
             spawnStreetlamps(world, rows, cols, heights);
         }
+        spawnTrees(world, rows, cols, heights);
     }
 
     // ------------------------------------------------------------------
@@ -226,10 +235,15 @@ public class MapGenerator implements TerrainHeightProvider {
                     float t     = riverVal / RIVER_WIDTH;
                     float blend = t * t * (3.0f - 2.0f * t);               // smoothstep [0, 1]
                     height  = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
-                    blendT  = blend * normalizedH * 0.5f;                   // sandy banks and bed
+                    // For river banks, we use sand (t < 0.12). 
+                    // Lowering normalizedH factor to ensure it stays sandy even at high terrain.
+                    blendT  = blend * normalizedH * 0.15f;
                 } else {
                     height = hillHeight;
-                    blendT = Math.min(normalizedH * 0.65f, 0.65f);          // grass → rock, no snow
+                    // Transitions: grass [0.12, 0.50] rock [0.50, 0.78] snow [0.78, 1.0]
+                    // We want it to be "quite high" before transitioning to rock (0.12).
+                    // If we use normalizedH * 0.20, then rock starts at normalizedH = 0.12 / 0.20 = 0.60 (60% height).
+                    blendT = Math.min(normalizedH * 0.20f, 0.65f);
                 }
 
                 heights[r * cols + c] = height;
@@ -280,6 +294,69 @@ public class MapGenerator implements TerrainHeightProvider {
                 );
                 pl.setInfluencingBounds(new BoundingSphere(new Point3d(nx, lightY, lightZ), 20.0));
                 world.addPointLight(pl);
+            }
+        }
+    }
+
+    private void spawnTrees(World world, int rows, int cols, float[] heights) {
+        Random rng = new Random(currentSeed + 99L);
+        int treesPlaced = 0;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (rng.nextFloat() > TREE_DENSITY) continue;
+
+                float height = heights[r * cols + c];
+                
+                // Avoid placing trees underwater
+                if (height < 0.2f) continue;
+
+                float nx = (c - cols / 2f) * cellSize;
+                float nz = (r - rows / 2f) * cellSize;
+
+                // For hills terrain, avoid river channels
+                if ("hills".equals(terrainType)) {
+                    FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(nx, nz);
+                    riverWarp.DomainWarp(rc);
+                    if (Math.abs(riverNoise.GetNoise(rc.x, rc.y)) < RIVER_WIDTH * 1.0f) continue;
+                }
+
+                MeshObject tree = new MeshObject(TREE_PATH, true);
+                tree.setCollidable(true);
+                double scale = TREE_SCALE_MIN + (TREE_SCALE_MAX - TREE_SCALE_MIN) * rng.nextDouble();
+                tree.setScale(scale);
+                tree.setPosition(nx, height, nz + zOffset);
+                // AABB in model space: trunk radius ±0.25, base at pivot y (-0.903), top at y=2.5
+                float radius = 0.08f;
+                Vector3d pivot = tree.getPivot();
+                tree.setLocalAABB(new AABB(
+                        (float)pivot.x - radius, (float)pivot.y, (float)pivot.z - radius,
+                        (float)pivot.x + radius, 0.0f,           (float)pivot.z + radius
+                ));
+                // Random rotation (yaw)
+                tree.setRotationEuler(0, rng.nextFloat() * Math.PI*2, 0);
+                
+                world.addObject(tree);
+
+                // Leaf particles drifting down from the canopy
+                double canopyY = height + scale * 1.8;
+                float canopyRadius = (float)(scale * 0.55f);
+                world.addEmitter(new ParticleEmitter(nx, canopyY-0.3, nz + zOffset)
+                        .setSpawnMode(ParticleEmitter.SpawnMode.BRICK)
+                        .setBrickSize(canopyRadius * 2, canopyRadius * 0.4f, canopyRadius * 2)
+                        .setEmissionRate(1.0)
+                        .setPitch(-Math.PI / 2)
+                        .setSpread(0.6)
+                        .setSpeed(0.5)
+                        .setStartColor(new Color4f(1f, 1f, 1f, 0.9f))
+                        .setEndColor(new Color4f(1f, 1f, 1f, 0f))
+                        .setStartSize((float)(scale * 0.12f))
+                        .setEndSize((float)(scale * 0.06f))
+                        .setLifetime(10.0f)
+                        .setGravityScale(0.04f)
+                        .setRotationSpeed((float)(Math.random()*120f-60f))
+                        .setAtlasPath("resources/particles/leaf.png"));
+
+                treesPlaced++;
             }
         }
     }

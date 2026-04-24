@@ -1,4 +1,6 @@
-package gui;
+package gui.commands;
+
+import gui.vec.Vector2;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;

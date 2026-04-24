@@ -1,6 +1,6 @@
 package renderer;
 
-import gui.CommandHud;
+import gui.commands.CommandHud;
 import gui.GuiCanvas;
 import renderer.skybox.Skybox;
 import objects.BaseObject;
@@ -34,7 +34,7 @@ public class Game3DRenderer {
     private LinearFog fog;
     private Skybox skybox;
     private DayNightCycle dayNightCycle;
-    private boolean skyboxIsDay = true;
+    private boolean skyboxIsDay = true; // No longer strictly needed but kept for other logic if any
 
     // Guard against calling setColor() on lights while the render structure is being rebuilt
     // (e.g. during startup or after clearObjects/addObject). The RenderStructureUpdateThread
@@ -45,12 +45,9 @@ public class Game3DRenderer {
     private volatile long lightResumeTimeMs = Long.MAX_VALUE; // reset in setupScene() after addBranchGraph
 
     // Skybox cross-fade state
-    private enum TransState { NONE, FADING_IN, FADING_OUT }
-    private TransState transState = TransState.NONE;
-    private boolean pendingSwapToDay;
-    private float veilAlpha = 0f;
-    // Each half (fade-in or fade-out) takes this many seconds
-    private static final float TRANS_HALF_SECS = 7f;
+    private float skyMix = 0f; // 0 = day, 1 = night
+    // Each cross-fade takes this many seconds
+    private static final float TRANS_SECS = 3f;
 
     // 3rd-person orbit camera
     private double camOrbitRadius = 5.0;
@@ -123,8 +120,9 @@ public class Game3DRenderer {
         Color3f dayFogColor   = new Color3f(0.9f,  0.9f,  0.9f);
         Color3f nightFogColor = new Color3f(0.03f, 0.03f, 0.10f);
 
-        skybox = new Skybox("/skyboxes/cloudy_sky", "png", dayFogColor);
-        skybox.preloadNightSky("/skyboxes/night2", "png", nightFogColor);
+        skybox = new Skybox("/sky/cubemaps/sky2", "png", dayFogColor);
+        skybox.preloadNightSky("/sky/cubemaps/night2", "png", nightFogColor);
+        skybox.addSunMoon("/sky/sun/sun.png", "/sky/sun/moon.png");
 
         BranchGroup sceneBG = world.getSceneBranchGroup();
         sceneBG.addChild(skybox.getBackground());
@@ -164,46 +162,29 @@ public class Game3DRenderer {
 
         world.getLighting().setAmbientColor(dayNightCycle.getAmbientColor());
         world.getLighting().setDirectionalColor(dayNightCycle.getSunColor());
+        world.getLighting().setDirectionalDirection(dayNightCycle.getSunDirection());
         Color3f fogColor = dayNightCycle.getFogColor();
         fog.setColor(fogColor);
         // Keep the skybox fog gradient in sync so it transitions smoothly rather than snapping
         if (skybox != null) skybox.setFogOverlayColor(fogColor);
 
-        // Skybox cross-fade state machine
+        // Skybox cross-fade
         boolean nowDay = dayNightCycle.isDay();
-        float step = (float) (deltaTime / TRANS_HALF_SECS);
+        float step = (float) (deltaTime / TRANS_SECS);
 
-        switch (transState) {
-            case NONE:
-                if (nowDay != skyboxIsDay) {
-                    transState = TransState.FADING_IN;
-                    pendingSwapToDay = nowDay;
-                }
-                break;
-            case FADING_IN:
-                veilAlpha = Math.min(1f, veilAlpha + step);
-                if (veilAlpha >= 1f) {
-                    // Veil fully covers sky — safe to swap underneath
-                    if (skybox != null) {
-                        skybox.setDaytime(pendingSwapToDay);
-                        skyboxIsDay = pendingSwapToDay;
-                    }
-                    transState = TransState.FADING_OUT;
-                }
-                break;
-            case FADING_OUT:
-                veilAlpha = Math.max(0f, veilAlpha - step);
-                if (veilAlpha <= 0f) transState = TransState.NONE;
-                break;
+        if (nowDay) {
+            skyMix = Math.max(0f, skyMix - step);
+        } else {
+            skyMix = Math.min(1f, skyMix + step);
         }
 
-        if (skybox != null) skybox.setVeilAlpha(veilAlpha);
+        if (skybox != null) skybox.setSkyMix(skyMix);
     }
 
     public void syncCamera(double deltaTime) {
         updateDayNight(deltaTime);
         syncSkybox();
-        if (skybox != null) skybox.update(deltaTime);
+        if (skybox != null) skybox.update(deltaTime, dayNightCycle != null ? dayNightCycle.getTimeOfDay() : 0.3);
 
         if (zoomKeys.contains(KeyEvent.VK_I))
             camOrbitRadius = Math.max(CAM_MIN_RADIUS, camOrbitRadius - CAM_ZOOM_SPEED * deltaTime);

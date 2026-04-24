@@ -1,5 +1,10 @@
 package gui;
 
+import gui.commands.CommandHud;
+import gui.text.BitmapFont;
+import gui.text.GuiText;
+import gui.vec.Vector2;
+
 import world.World;
 
 import com.jogamp.opengl.GL2;
@@ -23,7 +28,7 @@ public class GuiCanvas extends Canvas3D {
      *
      * <pre>
      *   GuiText label = new GuiText(GuiCanvas.ARIAL, "Score: 0",
-     *       GuiVec2.ofOffset(20, 20));
+     *       Vector2.ofOffset(20, 20));
      *   label.setPixelHeight(24);
      *   guiCanvas.addText(label);
      * </pre>
@@ -54,13 +59,13 @@ public class GuiCanvas extends Canvas3D {
         this.world = world;
         crosshair = new GuiTexture("/gui/SreTransparentCrop.png");
         crosshair.setCentered(true);
-        crosshair.setPosition(new GuiVec2(100f,0.1f,200f, 0.1f));
-        crosshair.setSize(GuiVec2.ofOffset(250f, 300f));
+        crosshair.setPosition(new Vector2(100f,0.1f,200f, 0.1f));
+        crosshair.setSize(Vector2.ofOffset(250f, 300f));
 
         joey = new GuiTexture("/gui/joey.png");
         joey.setCentered(true);
-        joey.setPosition(new GuiVec2(100f,0.1f,200f, 0.5f));
-        joey.setSize(GuiVec2.ofOffset(250f, 250));
+        joey.setPosition(new Vector2(100f,0.1f,200f, 0.5f));
+        joey.setSize(Vector2.ofOffset(250f, 250));
     }
 
     public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
@@ -113,7 +118,10 @@ public class GuiCanvas extends Canvas3D {
         crosshair.draw(g2d, getWidth(), getHeight());
         joey.draw(g2d, getWidth(), getHeight());
 
-        for (GuiText t : texts) t.draw(g2d, getWidth(), getHeight());
+        for (GuiText t : texts) {
+            t.draw(g2d, getWidth(), getHeight());
+            resetGlShaderState(); // Ensure state is clean after each text element
+        }
 
         if (debugVisible) drawDebugPanel(g2d);
         commandHud.draw(g2d, getWidth(), getHeight());

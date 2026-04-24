@@ -1,5 +1,7 @@
 package gui;
 
+import gui.vec.Vector2;
+
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -10,15 +12,15 @@ import java.io.InputStream;
 /**
  * A GUI element that renders a PNG or JPG image onto the screen.
  *
- * <p>Position and size both use {@link GuiVec2}, where each axis resolves as
+ * <p>Position and size both use {@link Vector2}, where each axis resolves as
  * {@code offset + scale * screenDimension}.  The anchor point is the top-left
  * corner of the image unless {@code centered} is true.
  *
  * <pre>
  *   GuiTexture crosshair = new GuiTexture("/gui/crosshair.png");
  *   crosshair.setCentered(true);
- *   crosshair.setPosition(GuiVec2.ofScale(0.5f, 0.5f)); // middle of screen
- *   crosshair.setSize(GuiVec2.ofOffset(64, 64));         // fixed 64×64 px
+ *   crosshair.setPosition(Vector2.ofScale(0.5f, 0.5f)); // middle of screen
+ *   crosshair.setSize(Vector2.ofOffset(64, 64));         // fixed 64×64 px
  *   crosshair.setAlpha(0.9f);
  * </pre>
  *
@@ -30,9 +32,9 @@ public class GuiTexture {
 
     private BufferedImage image;
     /** Position vector: each axis combines a fixed pixel offset and a screen-relative scale. */
-    private GuiVec2 position = new GuiVec2(0, 0f, 0, 0f);
+    private Vector2 position = new Vector2(0, 0f, 0, 0f);
     /** Size vector: each axis combines a fixed pixel offset and a screen-relative scale. */
-    private GuiVec2 size = new GuiVec2(0, 0.1f, 0, 0.1f);
+    private Vector2 size = new Vector2(0, 0.1f, 0, 0.1f);
     /** Opacity: 0 = fully transparent, 1 = fully opaque. */
     private float alpha = 1f;
     /** When true, the position is treated as the center rather than the top-left corner. */
@@ -59,10 +61,10 @@ public class GuiTexture {
      * Creates a GuiTexture and sets its position and size immediately.
      *
      * @param path     path to a PNG or JPG image
-     * @param position position vector (see {@link GuiVec2})
-     * @param size     size vector (see {@link GuiVec2})
+     * @param position position vector (see {@link Vector2})
+     * @param size     size vector (see {@link Vector2})
      */
-    public GuiTexture(String path, GuiVec2 position, GuiVec2 size) {
+    public GuiTexture(String path, Vector2 position, Vector2 size) {
         load(path);
         this.position = position;
         this.size = size;
@@ -147,12 +149,12 @@ public class GuiTexture {
     public BufferedImage getImage() { return image; }
 
     /** Position vector controlling anchor point via offset + scale per axis. */
-    public GuiVec2 getPosition() { return position; }
-    public void setPosition(GuiVec2 position) { this.position = position; }
+    public Vector2 getPosition() { return position; }
+    public void setPosition(Vector2 position) { this.position = position; }
 
     /** Size vector controlling width and height via offset + scale per axis. */
-    public GuiVec2 getSize() { return size; }
-    public void setSize(GuiVec2 size) { this.size = size; }
+    public Vector2 getSize() { return size; }
+    public void setSize(Vector2 size) { this.size = size; }
 
     /** Opacity: 0 = fully transparent, 1 = fully opaque. */
     public float getAlpha() { return alpha; }

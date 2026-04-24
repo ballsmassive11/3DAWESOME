@@ -1,6 +1,7 @@
 package renderer;
 
 import javax.vecmath.Color3f;
+import javax.vecmath.Vector3f;
 
 /**
  * Tracks the current time-of-day and provides interpolated sky/lighting colors.
@@ -18,9 +19,9 @@ public class DayNightCycle {
     private static final Color3f DAY_SUN     = new Color3f(1.0f,  1.0f,  1.0f);
     private static final Color3f DAY_FOG     = new Color3f(0.9f,  0.9f,  0.9f);
 
-    // --- Night colors (midnight) ---
-    private static final Color3f NIGHT_AMBIENT = new Color3f(0.10f, 0.10f, 0.20f);
-    private static final Color3f NIGHT_SUN     = new Color3f(0.04f, 0.04f, 0.12f);
+    // --- Night colors (midnight) — moonlight: cool silver-blue, bright enough for water specular ---
+    private static final Color3f NIGHT_AMBIENT = new Color3f(0.13f, 0.13f, 0.26f);
+    private static final Color3f NIGHT_SUN     = new Color3f(0.22f, 0.24f, 0.38f);
     private static final Color3f NIGHT_FOG     = new Color3f(0.03f, 0.03f, 0.10f);
 
     // --- Dawn / dusk tint colors ---
@@ -91,6 +92,21 @@ public class DayNightCycle {
                 a.x + (b.x - a.x) * ft,
                 a.y + (b.y - a.y) * ft,
                 a.z + (b.z - a.z) * ft);
+    }
+
+    /**
+     * Direction the sun/moon light travels (FROM celestial body TOWARD the scene).
+     * The sun arcs from east (+X horizon) at dawn, through directly overhead at noon,
+     * to west (-X horizon) at dusk, and below the world at midnight.
+     * A small southward tilt (-Z) gives a northern-hemisphere feel.
+     */
+    public Vector3f getSunDirection() {
+        double angle = (timeOfDay - 0.25) * 2.0 * Math.PI;
+        float x = -(float) Math.cos(angle);
+        float y = -(float) Math.sin(angle);
+        Vector3f dir = new Vector3f(x, y, -0.15f);
+        dir.normalize();
+        return dir;
     }
 
     // --- Getters / setters ---

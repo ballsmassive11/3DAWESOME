@@ -5,6 +5,7 @@ import entity.Player;
 import objects.BaseObject;
 import objects.MeshObject;
 import particles.Particle;
+import particles.ParticleEmitter;
 import particles.ParticleRenderer;
 import physics.AABB;
 import physics.TerrainHeightProvider;
@@ -17,10 +18,11 @@ import java.util.List;
 import java.util.Random;
 
 public class World {
-    private final List<BaseObject>  objects    = new ArrayList<>();
-    private final List<Entity>      entities   = new ArrayList<>();
-    private final List<BranchGroup> lightNodes = new ArrayList<>();
-    private final ParticleRenderer  particleRenderer = new ParticleRenderer();
+    private final List<BaseObject>      objects    = new ArrayList<>();
+    private final List<Entity>          entities   = new ArrayList<>();
+    private final List<BranchGroup>     lightNodes = new ArrayList<>();
+    private final List<ParticleEmitter> emitters   = new ArrayList<>();
+    private final ParticleRenderer      particleRenderer = new ParticleRenderer();
     private final Random            rng        = new Random();
     private double particleAccum = 0.0;
     private static final double PARTICLES_PER_SEC = 10.0;
@@ -99,6 +101,24 @@ public class World {
         node.setCapability(BranchGroup.ALLOW_DETACH);
         lightNodes.add(node);
         rootOrderedGroup.addChild(node);
+    }
+
+    // ------------------------------------------------------------------
+    // Particle emitters
+    // ------------------------------------------------------------------
+
+    /** Registers a {@link ParticleEmitter} to be updated every frame. */
+    public void addEmitter(ParticleEmitter emitter) {
+        emitters.add(emitter);
+    }
+
+    /** Removes a previously registered emitter. */
+    public void removeEmitter(ParticleEmitter emitter) {
+        emitters.remove(emitter);
+    }
+
+    public List<ParticleEmitter> getEmitters() {
+        return new ArrayList<>(emitters);
     }
 
     public List<BaseObject> getObjects() {
@@ -198,8 +218,12 @@ public class World {
         // Animate static objects
         for (BaseObject obj : new ArrayList<>(objects)) obj.update(deltaTime);
 
+        // Particle emitters
+        for (ParticleEmitter emitter : new ArrayList<>(emitters)) {
+            emitter.update(deltaTime, particleRenderer);
+        }
+
         // Particles
-        emitPlayerParticles(deltaTime);
         Vector3d camPos = player.getCamera().getPosition();
         particleRenderer.update(deltaTime, player.getCamera().getYaw(), player.getCamera().getPitch(),
                 camPos.x, camPos.y, camPos.z);
