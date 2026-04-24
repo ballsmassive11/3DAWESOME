@@ -1,5 +1,6 @@
-package gui;
+package gui.components;
 
+import gui.core.GuiObject;
 import gui.vec.Vector2;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -7,15 +8,13 @@ import java.awt.geom.AffineTransform;
 /**
  * A simple GUI box that can be filled, transparent, positioned, resized, and rotated.
  */
-public class GuiFrame {
+public class GuiFrame extends GuiObject {
 
-    private Vector2 position = new Vector2(0, 0f, 0, 0f);
     private Vector2 size = new Vector2(100, 0f, 100, 0f);
     private Color color = Color.WHITE;
     private float alpha = 1.0f;
     private double rotationDegrees = 0;
     private boolean centered = false;
-    private boolean visible = true;
     private boolean filled = true;
 
     public GuiFrame() {}
@@ -29,6 +28,7 @@ public class GuiFrame {
     /**
      * Draws the frame onto the given Graphics2D context.
      */
+    @Override
     public void draw(Graphics2D g2, int canvasWidth, int canvasHeight) {
         if (!visible) return;
 
@@ -71,9 +71,6 @@ public class GuiFrame {
 
     // Getters and Setters
 
-    public Vector2 getPosition() { return position; }
-    public void setPosition(Vector2 position) { this.position = position; }
-
     public Vector2 getSize() { return size; }
     public void setSize(Vector2 size) { this.size = size; }
 
@@ -95,9 +92,6 @@ public class GuiFrame {
 
     public boolean isCentered() { return centered; }
     public void setCentered(boolean centered) { this.centered = centered; }
-
-    public boolean isVisible() { return visible; }
-    public void setVisible(boolean visible) { this.visible = visible; }
 
     public boolean isFilled() { return filled; }
     public void setFilled(boolean filled) { this.filled = filled; }

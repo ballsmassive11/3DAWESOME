@@ -1,4 +1,4 @@
-package gui;
+package gui.overlay;
 
 import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GLContext;

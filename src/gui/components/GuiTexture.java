@@ -1,5 +1,6 @@
-package gui;
+package gui.components;
 
+import gui.core.GuiLabel;
 import gui.vec.Vector2;
 
 import javax.imageio.ImageIO;
@@ -28,19 +29,15 @@ import java.io.InputStream;
  * {@link GuiCanvas#postRender()} (or any other {@link Graphics2D} context)
  * to render the element.
  */
-public class GuiTexture {
+public class GuiTexture extends GuiLabel {
 
     private BufferedImage image;
-    /** Position vector: each axis combines a fixed pixel offset and a screen-relative scale. */
-    private Vector2 position = new Vector2(0, 0f, 0, 0f);
     /** Size vector: each axis combines a fixed pixel offset and a screen-relative scale. */
     private Vector2 size = new Vector2(0, 0.1f, 0, 0.1f);
     /** Opacity: 0 = fully transparent, 1 = fully opaque. */
     private float alpha = 1f;
     /** When true, the position is treated as the center rather than the top-left corner. */
     private boolean centered = false;
-    /** Whether this element should be drawn at all. */
-    private boolean visible = true;
 
     // ------------------------------------------------------------------
     // Construction / loading
@@ -116,6 +113,7 @@ public class GuiTexture {
      * @param canvasWidth  current canvas width in pixels
      * @param canvasHeight current canvas height in pixels
      */
+    @Override
     public void draw(Graphics2D g2, int canvasWidth, int canvasHeight) {
         if (!visible || image == null) return;
 
@@ -148,10 +146,6 @@ public class GuiTexture {
     /** Returns the raw loaded image. */
     public BufferedImage getImage() { return image; }
 
-    /** Position vector controlling anchor point via offset + scale per axis. */
-    public Vector2 getPosition() { return position; }
-    public void setPosition(Vector2 position) { this.position = position; }
-
     /** Size vector controlling width and height via offset + scale per axis. */
     public Vector2 getSize() { return size; }
     public void setSize(Vector2 size) { this.size = size; }
@@ -166,8 +160,4 @@ public class GuiTexture {
      */
     public boolean isCentered() { return centered; }
     public void setCentered(boolean centered) { this.centered = centered; }
-
-    /** Whether this element is drawn. Defaults to {@code true}. */
-    public boolean isVisible() { return visible; }
-    public void setVisible(boolean visible) { this.visible = visible; }
 }

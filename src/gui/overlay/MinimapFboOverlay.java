@@ -1,13 +1,15 @@
-package gui;
+package gui.overlay;
 
+import gui.core.GuiObject;
 import com.jogamp.opengl.GL2;
 
+import java.awt.Graphics2D;
 import java.nio.ByteBuffer;
 
 /**
  * Owns an FBO with color and depth attachments and draws its texture on-screen.
  */
-public class MinimapFboOverlay {
+public class MinimapFboOverlay extends GuiObject {
     private static final int PX = 10;
     private static final int PY = 10;
     private static final int PW = MinimapCaptureCanvas.W;
@@ -17,8 +19,22 @@ public class MinimapFboOverlay {
     private int texId = -1;
     private int rboId = -1;
     private boolean initialized = false;
+    private MinimapCaptureCanvas minimapCanvas;
+
+    public void setMinimapCanvas(MinimapCaptureCanvas minimapCanvas) {
+        this.minimapCanvas = minimapCanvas;
+    }
+
+    @Override
+    public void draw(Graphics2D g2d, int screenWidth, int screenHeight) {
+        // This is a special case where we need the GL context.
+        // In this project, GuiCanvas calls resetGlShaderState which might be problematic if we draw here.
+        // However, MinimapFboOverlay needs GL2 to render.
+    }
 
     public void render(GL2 gl, int screenW, int screenH, MinimapCaptureCanvas minimapCanvas) {
+        if (!visible) return;
+        this.minimapCanvas = minimapCanvas;
         if (!initialized) {
             init(gl);
         }

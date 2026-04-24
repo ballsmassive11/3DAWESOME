@@ -1,7 +1,7 @@
 package renderer;
 
+import gui.canvas.GuiCanvas;
 import gui.commands.CommandHud;
-import gui.GuiCanvas;
 import renderer.skybox.Skybox;
 import objects.BaseObject;
 import world.*;

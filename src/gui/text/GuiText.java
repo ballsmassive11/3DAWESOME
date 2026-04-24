@@ -1,5 +1,6 @@
 package gui.text;
 
+import gui.core.GuiLabel;
 import gui.vec.Vector2;
 
 import com.jogamp.opengl.GL2;
@@ -16,7 +17,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
-public class GuiText {
+public class GuiText extends GuiLabel {
 
     private static int shaderProgram = -1;
     private static int fontTextureId = -1;
@@ -24,11 +25,9 @@ public class GuiText {
 
     private String text;
     private BitmapFont font;
-    private Vector2 position;
     private float pixelHeight = 32f;
     private float letterSpacing = 0f; // extra pixels between characters
     private Color color = Color.WHITE;
-    private boolean visible = true;
 
     public GuiText(BitmapFont font, String text, Vector2 position) {
         this.font = font;
@@ -41,7 +40,13 @@ public class GuiText {
     public float getLetterSpacing() { return letterSpacing; }
     public void setColor(Color color) { this.color = color; }
 
-    public void draw(J3DGraphics2D g2d, int screenWidth, int screenHeight) {
+    @Override
+    public void draw(Graphics2D g, int screenWidth, int screenHeight) {
+        if (!(g instanceof J3DGraphics2D)) {
+            // Should theoretically not happen in this project's context
+            return;
+        }
+        J3DGraphics2D g2d = (J3DGraphics2D) g;
         if (!visible || text == null || text.isEmpty()) return;
 
         GL2 gl = GLContext.getCurrent().getGL().getGL2();

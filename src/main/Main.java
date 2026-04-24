@@ -1,6 +1,9 @@
 package main;
 
-import gui.*;
+import gui.canvas.GuiCanvas;
+import gui.components.GuiFrame;
+import gui.core.*;
+import gui.overlay.*;
 import gui.text.GuiText;
 import gui.vec.Vector2;
 import objects.*;

@@ -1,6 +1,6 @@
 package gui.commands;
 
-import gui.vec.Vector2;
+import gui.core.GuiObject;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  *   <li>{@code Escape} — cancel and close without submitting</li>
  * </ul>
  */
-public class CommandHud {
+public class CommandHud extends GuiObject {
 
     /** Key that opens the input bar when it is currently closed. */
     public static final int TOGGLE_KEY = KeyEvent.VK_SLASH;
@@ -157,8 +157,9 @@ public class CommandHud {
     // Drawing
     // -----------------------------------------------------------------------
 
+    @Override
     public void draw(Graphics2D g2, int canvasWidth, int canvasHeight) {
-        if (!active) return;
+        if (!visible || !active) return;
 
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
