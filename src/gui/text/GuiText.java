@@ -28,6 +28,7 @@ public class GuiText extends GuiLabel {
     private float pixelHeight = 32f;
     private float letterSpacing = 0f; // extra pixels between characters
     private Color color = Color.WHITE;
+    private boolean centered = false;
 
     public GuiText(BitmapFont font, String text, Vector2 position) {
         this.font = font;
@@ -39,6 +40,8 @@ public class GuiText extends GuiLabel {
     public void setLetterSpacing(float spacing) { this.letterSpacing = spacing; }
     public float getLetterSpacing() { return letterSpacing; }
     public void setColor(Color color) { this.color = color; }
+    public void setCentered(boolean centered) { this.centered = centered; }
+    public boolean isCentered() { return centered; }
 
     @Override
     public void draw(Graphics2D g, int screenWidth, int screenHeight) {
@@ -82,6 +85,10 @@ public class GuiText extends GuiLabel {
         gl.glDisable(GL2.GL_DEPTH_TEST);
         gl.glDisable(GL2.GL_CULL_FACE);
         gl.glEnable(GL2.GL_TEXTURE_2D);
+        
+        // Ensure we are drawing on top of anything already in the framebuffer
+        // by resetting the depth buffer if necessary, although depth test is disabled.
+        // Some drivers might still have issues if we don't ensure a clean state.
 
         gl.glPushAttrib(GL2.GL_VIEWPORT_BIT | GL2.GL_ENABLE_BIT);
         gl.glViewport(0, 0, screenWidth, screenHeight);
@@ -97,11 +104,20 @@ public class GuiText extends GuiLabel {
             BitmapFont.CharData charData = font.getChar(c);
             if (charData != null) totalWidth += charData.xadvance * scale + letterSpacing;
         }
-        if (position.xScale > 0.49f && position.xScale < 0.51f) {
+        if (centered) {
             curX -= totalWidth / 2f;
         }
 
-        float curY = py + font.getBase() * scale;
+        float curY = py;
+        if (centered) {
+            // Adjust curY so that the middle of the 'base' height (distance to baseline)
+            // is aligned with the anchor point 'py'.
+            // Most characters sit between y=0 and y=base.
+            curY = py - (font.getBase() * scale) / 2f;
+        } else {
+            // Non-centered: py is the top of the line
+            curY = py;
+        }
 
         gl.glBegin(GL2.GL_QUADS);
         gl.glColor4f(color.getRed()/255f, color.getGreen()/255f, color.getBlue()/255f, color.getAlpha()/255f);

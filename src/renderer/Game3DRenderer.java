@@ -55,6 +55,9 @@ public class Game3DRenderer {
     private static final double CAM_MAX_RADIUS = 20.0;
     private final Set<Integer> zoomKeys = new HashSet<>();
 
+    private boolean menuActive = false;
+    private boolean hasDoneInitialLightUpdate = false;
+
     public Game3DRenderer(World world) {
         this.world = world;
         initializeRenderer();
@@ -72,6 +75,10 @@ public class Game3DRenderer {
         canvas.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (menuActive) {
+                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
+                    return;
+                }
                 CommandHud cmdHud = canvas.getCommandHud();
                 if (cmdHud.handleToggle(e.getKeyCode())) return;
                 if (cmdHud.isActive()) {
@@ -150,14 +157,19 @@ public class Game3DRenderer {
     /** Call before large scene mutations (clearObjects, bulk addObject). */
     public void notifySceneChanging() { lightUpdateEnabled = false; }
 
-    /** Call after scene mutations are complete. Waits 4s before resuming light updates. */
-    public void notifySceneReady()    { lightResumeTimeMs = System.currentTimeMillis() + 4000; lightUpdateEnabled = true; }
+    /** Call after scene mutations are complete. Waits 0.5s before resuming light updates. */
+    public void notifySceneReady()    { lightResumeTimeMs = System.currentTimeMillis() + 500; lightUpdateEnabled = true; }
 
     public void updateDayNight(double deltaTime) {
         if (dayNightCycle == null) return;
         if (!lightUpdateEnabled) return;
-        if (System.currentTimeMillis() < lightResumeTimeMs) return;
+
+        // Force an initial update if we haven't updated yet, regardless of timer
+        boolean timerExpired = System.currentTimeMillis() >= lightResumeTimeMs;
+        if (!timerExpired && hasDoneInitialLightUpdate) return;
+
         dayNightCycle.update(deltaTime);
+        hasDoneInitialLightUpdate = true;
 
         world.getLighting().setAmbientColor(dayNightCycle.getAmbientColor());
         world.getLighting().setDirectionalColor(dayNightCycle.getSunColor());
@@ -298,6 +310,14 @@ public class Game3DRenderer {
     // -------------------------------------------------------------------------
     // Fog controls
     // -------------------------------------------------------------------------
+
+    public void setMenuActive(boolean active) {
+        this.menuActive = active;
+    }
+
+    public boolean isMenuActive() {
+        return menuActive;
+    }
 
     public void setFogOn(boolean on) {
         if (on && fogMargin > 0) {

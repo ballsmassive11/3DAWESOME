@@ -5,6 +5,7 @@ import gui.components.GuiFrame;
 import gui.components.GuiTexture;
 import gui.core.GuiObject;
 import gui.overlay.GuiDebugPanel;
+import gui.overlay.LoadingScreen;
 import gui.text.BitmapFont;
 import gui.text.GuiText;
 import gui.vec.Vector2;
@@ -16,6 +17,8 @@ import com.jogamp.opengl.GLContext;
 import javax.media.j3d.Canvas3D;
 import javax.media.j3d.J3DGraphics2D;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -41,6 +44,7 @@ public class GuiCanvas extends Canvas3D {
 
     private final CommandHud commandHud = new CommandHud();
     private final GuiDebugPanel debugPanel = new GuiDebugPanel();
+    private final LoadingScreen loadingScreen = new LoadingScreen();
     private GuiTexture crosshair;
     private GuiTexture joey;
 
@@ -57,16 +61,58 @@ public class GuiCanvas extends Canvas3D {
         crosshair.setCentered(true);
         crosshair.setPosition(new Vector2(100f,0.1f,200f, 0.1f));
         crosshair.setSize(Vector2.ofOffset(250f, 300f));
+        crosshair.setVisible(false);
         guiObjects.add(crosshair);
 
         joey = new GuiTexture("/gui/joey.png");
         joey.setCentered(true);
         joey.setPosition(new Vector2(100f,0.1f,200f, 0.5f));
         joey.setSize(Vector2.ofOffset(250f, 250));
+        joey.setVisible(false);
         guiObjects.add(joey);
 
+        debugPanel.setVisible(false);
         guiObjects.add(debugPanel);
         guiObjects.add(commandHud);
+        guiObjects.add(loadingScreen);
+
+        MouseAdapter mouseHandler = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) { dispatchMouseEvent(e); }
+            @Override
+            public void mouseReleased(MouseEvent e) { dispatchMouseEvent(e); }
+            @Override
+            public void mouseClicked(MouseEvent e) { dispatchMouseEvent(e); }
+            @Override
+            public void mouseMoved(MouseEvent e) { dispatchMouseEvent(e); }
+            @Override
+            public void mouseDragged(MouseEvent e) { dispatchMouseEvent(e); }
+
+            private void dispatchMouseEvent(MouseEvent e) {
+                // System overlays get first dibs on mouse events (top to bottom)
+                if (loadingScreen.isVisible()) {
+                    if (loadingScreen.handleMouseEvent(e, getWidth(), getHeight())) return;
+                }
+                if (commandHud.isActive() && commandHud.isVisible()) {
+                    if (commandHud.handleMouseEvent(e, getWidth(), getHeight())) return;
+                }
+                if (debugPanel.isVisible()) {
+                    if (debugPanel.handleMouseEvent(e, getWidth(), getHeight())) return;
+                }
+
+                // Dispatch to other objects in reverse order (top to bottom)
+                for (int i = guiObjects.size() - 1; i >= 0; i--) {
+                    GuiObject obj = guiObjects.get(i);
+                    if (obj == commandHud || obj == debugPanel) continue;
+                    
+                    if (obj.handleMouseEvent(e, getWidth(), getHeight())) {
+                        break;
+                    }
+                }
+            }
+        };
+        addMouseListener(mouseHandler);
+        addMouseMotionListener(mouseHandler);
     }
 
     public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
@@ -75,6 +121,24 @@ public class GuiCanvas extends Canvas3D {
 
     public void toggleDebugPanel() {
         debugPanel.setVisible(!debugPanel.isVisible());
+    }
+
+    public void showInGameHud() {
+        crosshair.setVisible(true);
+        joey.setVisible(true);
+    }
+
+    public void showLoadingScreen() {
+        loadingScreen.setVisible(true);
+    }
+
+    public void hideLoadingScreen() {
+        loadingScreen.setVisible(false);
+    }
+
+    public void hideInGameHud() {
+        crosshair.setVisible(false);
+        joey.setVisible(false);
     }
 
     public CommandHud getCommandHud() { return commandHud; }
@@ -131,9 +195,26 @@ public class GuiCanvas extends Canvas3D {
         J3DGraphics2D g2d = getGraphics2D();
 
         for (GuiObject obj : guiObjects) {
+            // Draw regular objects first, skip command hud and debug panel to draw them last
+            if (obj == commandHud || obj == debugPanel) continue;
+            
             obj.draw(g2d, getWidth(), getHeight());
             // Most GUI objects use standard Graphics2D, but GuiText uses custom GL shaders.
             // To be safe, we reset state after each object.
+            resetGlShaderState();
+        }
+
+        // Draw system overlays last to ensure they are on top
+        if (loadingScreen.isVisible()) {
+            loadingScreen.draw(g2d, getWidth(), getHeight());
+            resetGlShaderState();
+        }
+        if (debugPanel.isVisible()) {
+            debugPanel.draw(g2d, getWidth(), getHeight());
+            resetGlShaderState();
+        }
+        if (commandHud.isVisible() && commandHud.isActive()) {
+            commandHud.draw(g2d, getWidth(), getHeight());
             resetGlShaderState();
         }
 

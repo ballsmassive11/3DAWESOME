@@ -173,6 +173,12 @@ public class MapGenerator implements TerrainHeightProvider {
         }
         world.setTerrainProvider(this);
 
+        // Reset player position to be safely on the generated ground
+        float startX = (float) world.getPlayer().getPosition().x;
+        float startZ = (float) world.getPlayer().getPosition().z;
+        float groundY = getHeightAt(startX, startZ);
+        world.getPlayer().getPosition().y = groundY + 1.7f; // EYE_HEIGHT
+
         if ("hills".equals(terrainType)) {
             spawnStreetlamps(world, rows, cols, heights);
         }
