@@ -104,6 +104,14 @@ public class DayNightCycle {
         double angle = (timeOfDay - 0.25) * 2.0 * Math.PI;
         float x = -(float) Math.cos(angle);
         float y = -(float) Math.sin(angle);
+
+        // If the light direction points upward (y > 0), it means the sun is below the horizon.
+        // In this case, we treat the light as moonlight coming from the opposite side.
+        if (y > 0) {
+            x = -x;
+            y = -y;
+        }
+
         Vector3f dir = new Vector3f(x, y, -0.15f);
         dir.normalize();
         return dir;

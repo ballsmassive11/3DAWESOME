@@ -45,8 +45,6 @@ public class GuiCanvas extends Canvas3D {
     private final CommandHud commandHud = new CommandHud();
     private final GuiDebugPanel debugPanel = new GuiDebugPanel();
     private final LoadingScreen loadingScreen = new LoadingScreen();
-    private GuiTexture crosshair;
-    private GuiTexture joey;
 
     private final World world;
 
@@ -56,20 +54,6 @@ public class GuiCanvas extends Canvas3D {
     public GuiCanvas(GraphicsConfiguration config, World world) {
         super(config);
         this.world = world;
-
-        crosshair = new GuiTexture("/gui/SreTransparentCrop.png");
-        crosshair.setCentered(true);
-        crosshair.setPosition(new Vector2(100f,0.1f,200f, 0.1f));
-        crosshair.setSize(Vector2.ofOffset(250f, 300f));
-        crosshair.setVisible(false);
-        guiObjects.add(crosshair);
-
-        joey = new GuiTexture("/gui/joey.png");
-        joey.setCentered(true);
-        joey.setPosition(new Vector2(100f,0.1f,200f, 0.5f));
-        joey.setSize(Vector2.ofOffset(250f, 250));
-        joey.setVisible(false);
-        guiObjects.add(joey);
 
         debugPanel.setVisible(false);
         guiObjects.add(debugPanel);
@@ -123,12 +107,8 @@ public class GuiCanvas extends Canvas3D {
         debugPanel.setVisible(!debugPanel.isVisible());
     }
 
-    public void showInGameHud() {
-        crosshair.setVisible(true);
-        joey.setVisible(true);
-    }
-
     public void showLoadingScreen() {
+        loadingScreen.setProgress(0f, "Initializing...");
         loadingScreen.setVisible(true);
     }
 
@@ -136,9 +116,8 @@ public class GuiCanvas extends Canvas3D {
         loadingScreen.setVisible(false);
     }
 
-    public void hideInGameHud() {
-        crosshair.setVisible(false);
-        joey.setVisible(false);
+    public void setLoadingProgress(float progress, String status) {
+        loadingScreen.setProgress(progress, status);
     }
 
     public CommandHud getCommandHud() { return commandHud; }
@@ -159,6 +138,8 @@ public class GuiCanvas extends Canvas3D {
 
     /** Adds a {@link GuiText} element to be drawn every frame. */
     public void addText(GuiText text)    { addObject(text); }
+
+    public void addTexture(GuiTexture texture) { addObject(texture); }
 
     /** Removes a previously added {@link GuiText} element. */
     public void removeText(GuiText text) { removeObject(text); }

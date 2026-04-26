@@ -2,6 +2,7 @@ package main;
 
 import gui.canvas.GuiCanvas;
 import gui.components.GuiFrame;
+import gui.components.GuiTexture;
 import gui.components.TextButton;
 import gui.core.*;
 import gui.overlay.*;
@@ -95,12 +96,14 @@ public class Main {
                     world.setPhysicsEnabled(true);
                     
                     // Generate world content (heavy task)
+                    gui.setLoadingProgress(0.05f, "Preparing world...");
                     createWorldContent(world, renderer);
+                    
+                    gui.setLoadingProgress(1.0f, "Done!");
                     
                     // Once done, switch back to EDT to hide loading screen and show HUD
                     SwingUtilities.invokeLater(() -> {
                         gui.hideLoadingScreen();
-                        gui.showInGameHud();
                     });
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -113,18 +116,24 @@ public class Main {
     }
 
     private static void createWorldContent(World world, Game3DRenderer renderer) {
+        GuiCanvas gui = renderer.getGuiCanvas();
         System.out.println("Generating world content...");
         renderer.notifySceneChanging();
 
         // Set the player's visible body model
+        gui.setLoadingProgress(0.05f, "Loading player model...");
         world.setPlayerModel("resources/models/Guy/guy.obj");
 
+        gui.setLoadingProgress(0.1f, "Initializing map generator...");
         MapGenerator mapGen = new MapGenerator();
+        mapGen.setReporter((p, s) -> gui.setLoadingProgress(0.1f + p * 0.6f, s));
         int seed = (int) System.currentTimeMillis();
         mapGen.setSeed(seed);
         world.setSeed(seed);
+        
         mapGen.generate(world);
 
+        gui.setLoadingProgress(0.75f, "Spawning world objects...");
         Cube cube = new Cube(5);
         cube.setPosition(0, 10, 20);
         world.addObject(cube);
@@ -161,6 +170,7 @@ public class Main {
         world.addObject(boat);
 
         // Add the Ruger model object with textures
+        gui.setLoadingProgress(0.8f, "Loading models...");
         MeshObject ruger = new MeshObject("resources/models/Ruger/ruger.obj", true);
         ruger.setPosition(-2.0f, 10.0f, 2.0f);
         ruger.setScale(2.0f);
@@ -181,7 +191,7 @@ public class Main {
         rock.setAngularVelocity(20, 35.5, -12); // Rotate the gun
         world.addObject(rock);
 
-        GuiCanvas gui = renderer.getGuiCanvas();
+        gui.setLoadingProgress(0.9f, "Setting up GUI...");
         GuiText welcomeText = new GuiText(GuiCanvas.ARIAL, "Ohio Impressed", Vector2.ofScale(0.5f, 0.1f));
         welcomeText.setPixelHeight(64f);
         welcomeText.setColor(new Color(255, 200, 0));
@@ -191,7 +201,22 @@ public class Main {
         GuiFrame textBg = new GuiFrame(Vector2.ofScale(0.5f, 0.1f), Vector2.ofOffset(500, 100), new Color(0, 0, 0, 128));
         textBg.setCentered(true);
         textBg.setRotation(5.0); // Slightly rotated as requested
+        textBg.setBorderWidth(2f);
         gui.addFrame(textBg);
+
+        GuiTexture crop = new GuiTexture("/gui/SreTransparentCrop.png");
+        crop.setCentered(true);
+        crop.setPosition(new Vector2(100f,0.1f,200f, 0.1f));
+        crop.setSize(Vector2.ofOffset(250f, 300f));
+        crop.setVisible(true);
+        gui.addTexture(crop);
+
+        GuiTexture joey = new GuiTexture("/gui/joey.png");
+        joey.setCentered(true);
+        joey.setPosition(new Vector2(100f,0.1f,200f, 0.5f));
+        joey.setSize(Vector2.ofOffset(250f, 250));
+        joey.setVisible(true);
+        gui.addTexture(joey);
 
         TextButton spawnSuzanne = new TextButton("Spawn Suzanne", Vector2.ofScale(0.15f, 0.9f), Vector2.ofOffset(200, 50));
         spawnSuzanne.addClickListener(btn -> {
@@ -204,6 +229,7 @@ public class Main {
         });
         gui.addObject(spawnSuzanne);
 
+        gui.setLoadingProgress(0.95f, "Finalizing scene...");
         renderer.notifySceneReady();
         System.out.println("World content generated.");
     }

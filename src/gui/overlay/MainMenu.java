@@ -46,6 +46,9 @@ public class MainMenu extends GuiObject {
         createWorldBtn = new TextButton("Create World", Vector2.ofScale(0.5f, 0.50f), Vector2.ofOffset(260, 60));
         controlsBtn    = new TextButton("Controls",     Vector2.ofScale(0.5f, 0.62f), Vector2.ofOffset(260, 60));
 
+        createWorldBtn.setTextHeight(50);
+        createWorldBtn.setTextLetterSpacing(-6f);
+
         // ---- Controls view ----
         controlsBg = new GuiFrame(Vector2.ofScale(0.5f, 0.5f), Vector2.ofOffset(520, 420), new Color(20, 20, 20, 230));
         controlsBg.setCentered(true);
@@ -57,7 +60,7 @@ public class MainMenu extends GuiObject {
             { "Arrow Keys",      "Look" },
             { "Space",           "Jump" },
             { "F",               "Toggle fly" },
-            { "`",               "Command bar" },
+            { "/",               "Command bar" },
         };
         // Y offsets relative to screen center (negative = above center)
         int[] yOffsets = { -160, -90, -52, -14, 24, 62 };

@@ -42,6 +42,8 @@ public class GuiText extends GuiLabel {
     public void setColor(Color color) { this.color = color; }
     public void setCentered(boolean centered) { this.centered = centered; }
     public boolean isCentered() { return centered; }
+    public void setText(String text) { this.text = text; }
+    public String getText() { return text; }
 
     @Override
     public void draw(Graphics2D g, int screenWidth, int screenHeight) {
@@ -102,6 +104,13 @@ public class GuiText extends GuiLabel {
         float totalWidth = 0;
         for (char c : text.toCharArray()) {
             BitmapFont.CharData charData = font.getChar(c);
+            if (charData == null) {
+                if (c == '\u2014') { // Em-dash fallback to hyphen
+                    charData = font.getChar('-');
+                } else {
+                    charData = font.getChar('?');
+                }
+            }
             if (charData != null) totalWidth += charData.xadvance * scale + letterSpacing;
         }
         if (centered) {
@@ -124,7 +133,13 @@ public class GuiText extends GuiLabel {
 
         for (char c : text.toCharArray()) {
             BitmapFont.CharData charData = font.getChar(c);
-            if (charData == null) charData = font.getChar('?');
+            if (charData == null) {
+                if (c == '\u2014') { // Em-dash fallback
+                    charData = font.getChar('-');
+                } else {
+                    charData = font.getChar('?');
+                }
+            }
             if (charData == null) continue;
 
             float x0 = curX + charData.xoffset * scale;
@@ -164,11 +179,11 @@ public class GuiText extends GuiLabel {
         int v = gl.glCreateShader(GL2.GL_VERTEX_SHADER);
         int f = gl.glCreateShader(GL2.GL_FRAGMENT_SHADER);
 
-        gl.glShaderSource(v, 1, new String[]{loadResource("/gui/font.vert")}, null);
+        gl.glShaderSource(v, 1, new String[]{loadResource("/fonts/font.vert")}, null);
         gl.glCompileShader(v);
         checkShaderLog(gl, v);
-        
-        gl.glShaderSource(f, 1, new String[]{loadResource("/gui/font.frag")}, null);
+
+        gl.glShaderSource(f, 1, new String[]{loadResource("/fonts/font.frag")}, null);
         gl.glCompileShader(f);
         checkShaderLog(gl, f);
 

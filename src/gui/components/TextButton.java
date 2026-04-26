@@ -124,6 +124,8 @@ public class TextButton extends GuiButton {
     public void setPressedColor(Color color) { this.pressedColor = color; }
     public void setTextColor(Color color) { this.label.setColor(color); }
     public void setTextHeight(float height) { this.label.setPixelHeight(height); }
+    public void setTextLetterSpacing(float spacing) { this.label.setLetterSpacing(spacing); }
+    public float getTextLetterSpacing() { return this.label.getLetterSpacing(); }
 
     @Override
     public void setPosition(Vector2 position) {

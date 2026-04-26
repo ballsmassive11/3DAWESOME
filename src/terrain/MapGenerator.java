@@ -6,6 +6,7 @@ import particles.ParticleEmitter;
 import physics.AABB;
 import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
+import util.ProgressReporter;
 import water.WaterTile;
 import world.World;
 
@@ -76,6 +77,7 @@ public class MapGenerator implements TerrainHeightProvider {
     private float  zOffset     = -10.0f;  // shift terrain along -Z
     private String terrainType = "hills"; // "biome" or "hills"
     private int    currentSeed = 0;
+    private ProgressReporter reporter;
 
     public MapGenerator() {
         // --- biome warp ---
@@ -128,6 +130,16 @@ public class MapGenerator implements TerrainHeightProvider {
     // Public API
     // ------------------------------------------------------------------
 
+    public void setReporter(ProgressReporter reporter) {
+        this.reporter = reporter;
+    }
+
+    private void report(float progress, String status) {
+        if (reporter != null) {
+            reporter.report(progress, status);
+        }
+    }
+
     public void generate(World world) {
         int cols = (int)(gridSize / cellSize) + 1;
         int rows = cols;
@@ -136,8 +148,10 @@ public class MapGenerator implements TerrainHeightProvider {
         Color4f[] colors  = new Color4f[rows * cols];
 
         if ("hills".equals(terrainType)) {
+            report(0.0f, "Building hill heights...");
             buildHillsHeights(rows, cols, heights, colors);
         } else {
+            report(0.0f, "Building biome heights...");
             buildBiomeHeights(rows, cols, heights, colors);
         }
 
@@ -146,12 +160,20 @@ public class MapGenerator implements TerrainHeightProvider {
         // to the entire map's center. Chunk size ~40 world units; lamp bounds are 50.
         final int CHUNK_SIZE = 30; // cells per chunk side (chunks share border vertices)
         ShaderAppearance terrainApp = buildTerrainAppearance(); // build once, shared by all chunks
+        
+        int totalChunks = ((rows - 1 + CHUNK_SIZE - 2) / (CHUNK_SIZE - 1)) * ((cols - 1 + CHUNK_SIZE - 2) / (CHUNK_SIZE - 1));
+        int chunkCount = 0;
+
         for (int r0 = 0; r0 < rows - 1; r0 += CHUNK_SIZE - 1) {
             int chunkRows = Math.min(CHUNK_SIZE, rows - r0);
             if (chunkRows < 2) continue;
             for (int c0 = 0; c0 < cols - 1; c0 += CHUNK_SIZE - 1) {
                 int chunkCols = Math.min(CHUNK_SIZE, cols - c0);
                 if (chunkCols < 2) continue;
+                
+                chunkCount++;
+                report(0.4f + 0.3f * (chunkCount / (float)totalChunks), "Generating terrain chunks (" + chunkCount + "/" + totalChunks + ")...");
+                
                 TerrainMesh chunk = new TerrainMesh(heights, colors, rows, cols,
                         r0, c0, chunkRows, chunkCols, cellSize);
                 chunk.setPosition(0, 0, zOffset);
@@ -160,6 +182,7 @@ public class MapGenerator implements TerrainHeightProvider {
             }
         }
 
+        report(0.75f, "Adding water...");
         // Tile the water surface across the terrain using WaterTile-sized quads.
         float terrainSize = gridSize * cellSize;
         int tilesPerAxis = (int) Math.ceil(terrainSize / WaterTile.TILE_SIZE);
@@ -180,8 +203,10 @@ public class MapGenerator implements TerrainHeightProvider {
         world.getPlayer().getPosition().y = groundY + 1.7f; // EYE_HEIGHT
 
         if ("hills".equals(terrainType)) {
+            report(0.85f, "Spawning streetlamps...");
             spawnStreetlamps(world, rows, cols, heights);
         }
+        report(0.95f, "Planting trees...");
         spawnTrees(world, rows, cols, heights);
     }
 
@@ -191,6 +216,7 @@ public class MapGenerator implements TerrainHeightProvider {
 
     private void buildBiomeHeights(int rows, int cols, float[] heights, Color4f[] colors) {
         for (int r = 0; r < rows; r++) {
+            if (r % 25 == 0) report(0.1f + 0.3f * (r / (float)rows), "Calculating biome heights...");
             for (int c = 0; c < cols; c++) {
                 float nx = (c - cols / 2f) * cellSize;
                 float nz = (r - rows / 2f) * cellSize;
@@ -221,6 +247,7 @@ public class MapGenerator implements TerrainHeightProvider {
 
     private void buildHillsHeights(int rows, int cols, float[] heights, Color4f[] colors) {
         for (int r = 0; r < rows; r++) {
+            if (r % 25 == 0) report(0.1f + 0.3f * (r / (float)rows), "Calculating hill heights...");
             for (int c = 0; c < cols; c++) {
                 float nx = (c - cols / 2f) * cellSize;
                 float nz = (r - rows / 2f) * cellSize;

@@ -38,6 +38,8 @@ public class GuiTexture extends GuiLabel {
     private float alpha = 1f;
     /** When true, the position is treated as the center rather than the top-left corner. */
     private boolean centered = false;
+    /** Rotation in radians. */
+    private double rotation = 0;
 
     // ------------------------------------------------------------------
     // Construction / loading
@@ -122,9 +124,12 @@ public class GuiTexture extends GuiLabel {
         int pw = size.resolveX(canvasWidth);
         int ph = size.resolveY(canvasHeight);
 
+        int drawX = px;
+        int drawY = py;
+
         if (centered) {
-            px -= pw / 2;
-            py -= ph / 2;
+            drawX -= pw / 2;
+            drawY -= ph / 2;
         }
 
         Composite prevComposite = g2.getComposite();
@@ -132,7 +137,17 @@ public class GuiTexture extends GuiLabel {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         }
 
-        g2.drawImage(image, px, py, pw, ph, null);
+        if (rotation != 0) {
+            java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+            // Rotate around the center of the image
+            int centerX = drawX + pw / 2;
+            int centerY = drawY + ph / 2;
+            g2.rotate(rotation, centerX, centerY);
+            g2.drawImage(image, drawX, drawY, pw, ph, null);
+            g2.setTransform(oldTransform);
+        } else {
+            g2.drawImage(image, drawX, drawY, pw, ph, null);
+        }
 
         if (alpha < 1f) {
             g2.setComposite(prevComposite);
@@ -160,4 +175,7 @@ public class GuiTexture extends GuiLabel {
      */
     public boolean isCentered() { return centered; }
     public void setCentered(boolean centered) { this.centered = centered; }
+
+    public double getRotation() { return rotation; }
+    public void setRotation(double rotation) { this.rotation = rotation; }
 }

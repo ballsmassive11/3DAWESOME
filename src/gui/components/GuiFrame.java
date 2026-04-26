@@ -17,6 +17,10 @@ public class GuiFrame extends GuiObject {
     private boolean centered = false;
     private boolean filled = true;
 
+    private Color borderColor = Color.BLACK;
+    private float borderWidth = 0.0f;
+    private float borderAlpha = 1.0f;
+
     public GuiFrame() {}
 
     public GuiFrame(Vector2 position, Vector2 size, Color color) {
@@ -40,6 +44,7 @@ public class GuiFrame extends GuiObject {
         // Save original transform and composite
         AffineTransform oldTransform = g2.getTransform();
         Composite oldComposite = g2.getComposite();
+        Stroke oldStroke = g2.getStroke();
 
         // Apply alpha
         if (alpha < 1.0f) {
@@ -57,14 +62,25 @@ public class GuiFrame extends GuiObject {
         int drawX = centered ? px - pw / 2 : px;
         int drawY = centered ? py - ph / 2 : py;
 
-        g2.setColor(color);
         if (filled) {
+            g2.setColor(color);
             g2.fillRect(drawX, drawY, pw, ph);
-        } else {
+        }
+
+        // Draw border
+        if (borderWidth > 0) {
+            g2.setColor(new Color(
+                    borderColor.getRed(),
+                    borderColor.getGreen(),
+                    borderColor.getBlue(),
+                    (int) (borderAlpha * 255)
+            ));
+            g2.setStroke(new BasicStroke(borderWidth));
             g2.drawRect(drawX, drawY, pw, ph);
         }
 
         // Restore state
+        g2.setStroke(oldStroke);
         g2.setComposite(oldComposite);
         g2.setTransform(oldTransform);
     }
@@ -95,4 +111,15 @@ public class GuiFrame extends GuiObject {
 
     public boolean isFilled() { return filled; }
     public void setFilled(boolean filled) { this.filled = filled; }
+
+    public Color getBorderColor() { return borderColor; }
+    public void setBorderColor(Color borderColor) { this.borderColor = borderColor; }
+
+    public float getBorderWidth() { return borderWidth; }
+    public void setBorderWidth(float borderWidth) { this.borderWidth = borderWidth; }
+
+    public float getBorderAlpha() { return borderAlpha; }
+    public void setBorderAlpha(float borderAlpha) {
+        this.borderAlpha = Math.max(0f, Math.min(1f, borderAlpha));
+    }
 }

@@ -9,7 +9,7 @@ varying vec3 vSpecDir;
 varying vec3 vDirSpecColor;
 
 const float DISTORTION = 0.04;
-const vec3 WATER_COLOR = vec3(0.2, 0.5, 0.7);
+const vec3 WATER_COLOR = vec3(0.25, 0.55, 0.75);
 
 void main() {
     // ---- DuDv distortion -------------------------------------------------------
@@ -22,13 +22,13 @@ void main() {
     // ---- Normals (stronger influence so ripples are visible in bright light) ---
     vec2 normalUV = vTC + vec2(time * 0.01, -time * 0.01) + dudv;
     vec3 mapN = texture2D(waterNormalTex, normalUV).rgb * 2.0 - 1.0;
-    vec3 N = normalize(vEyeNormal + vec3(mapN.x * 1.2, mapN.z * 0.8, mapN.y * 1.2));
+    vec3 N = normalize(vEyeNormal + vec3(mapN.x * 1.3, mapN.z * 0.9, mapN.y * 1.3));
     vec3 E = normalize(-vEyePos);
 
     // ---- Lighting --------------------------------------------------------------
     float diffuse = max(dot(N, vSpecDir), 0.0);
     // Raise the dark floor so backlit ripple faces don't go too black
-    vec3 color = WATER_COLOR * (0.55 + 0.45 * diffuse);
+    vec3 color = WATER_COLOR * (0.65 + 0.35 * diffuse);
 
     // Specular
     vec3 R = reflect(-vSpecDir, N);
@@ -37,7 +37,7 @@ void main() {
 
     // Fresnel: at grazing angles the surface shimmers — makes ripples pop in daylight
     float fresnel = pow(1.0 - max(dot(N, E), 0.0), 4.0);
-    vec3 fresnelGlint = vDirSpecColor * fresnel * 0.45;
+    vec3 fresnelGlint = (vDirSpecColor + 0.1) * fresnel * 0.45;
 
     vec3 litColor = color + specColor + fresnelGlint;
 
