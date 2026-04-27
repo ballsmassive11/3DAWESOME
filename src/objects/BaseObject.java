@@ -28,6 +28,11 @@ public abstract class BaseObject {
     private boolean collidable = true;    // false = skip collision even if localAABB is set
     private RenderingAttributes hitboxRA; // controls wireframe visibility after compile
 
+    // Pivot: model-space point that maps to the object's world position.
+    // Applied as T(-pivot) after scale in the transform chain: T * R * S * T(-pivot).
+    // Default (0,0,0) means the model origin is the world-position anchor.
+    protected Vector3d pivot = new Vector3d(0.0, 0.0, 0.0);
+
     /**
      * Constructor initializes the object with default values.
      */
@@ -116,12 +121,63 @@ public abstract class BaseObject {
 
     /**
      * Returns the world-space AABB for this frame, or null if not collidable.
-     * The local AABB is simply offset by the object's current position
-     * (rotation is intentionally ignored — axis-aligned stays axis-aligned).
+     * The local AABB is transformed by scale and rotation relative to the pivot,
+     * then translated by the object's current position.
      */
     public AABB getWorldAABB() {
         if (!collidable || localAABB == null) return null;
-        return localAABB.translate((float) position.x, (float) position.y, (float) position.z);
+
+        float sx = (float) scale.x, sy = (float) scale.y, sz = (float) scale.z;
+        float px = (float) pivot.x, py = (float) pivot.y, pz = (float) pivot.z;
+
+        // 1. Define the 8 corners of the local AABB relative to the pivot
+        float x0 = (localAABB.minX - px) * sx;
+        float x1 = (localAABB.maxX - px) * sx;
+        float y0 = (localAABB.minY - py) * sy;
+        float y1 = (localAABB.maxY - py) * sy;
+        float z0 = (localAABB.minZ - pz) * sz;
+        float z1 = (localAABB.maxZ - pz) * sz;
+
+        Point3f[] corners = {
+            new Point3f(x0, y0, z0), new Point3f(x1, y0, z0),
+            new Point3f(x0, y1, z0), new Point3f(x1, y1, z0),
+            new Point3f(x0, y0, z1), new Point3f(x1, y0, z1),
+            new Point3f(x0, y1, z1), new Point3f(x1, y1, z1)
+        };
+
+        // 2. Rotate each corner using the current quaternion rotation
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+
+        // Transform corners by rotation
+        for (Point3f p : corners) {
+            rotatePoint(p, rotation);
+            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+            if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+        }
+
+        // 3. Translate by current world position
+        return new AABB(
+            minX + (float) position.x, minY + (float) position.y, minZ + (float) position.z,
+            maxX + (float) position.x, maxY + (float) position.y, maxZ + (float) position.z
+        );
+    }
+
+    /** Helper to rotate a point by a quaternion. */
+    private void rotatePoint(Point3f p, Quat4d q) {
+        // q * p * q^-1
+        double qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+        double px = p.x, py = p.y, pz = p.z;
+
+        double ix =  qw * px + qy * pz - qz * py;
+        double iy =  qw * py + qz * px - qx * pz;
+        double iz =  qw * pz + qx * py - qy * px;
+        double iw = -qx * px - qy * py - qz * pz;
+
+        p.x = (float) (ix * qw + iw * -qx + iy * -qz - iz * -qy);
+        p.y = (float) (iy * qw + iw * -qy + iz * -qx - ix * -qz);
+        p.z = (float) (iz * qw + iw * -qz + ix * -qy - iy * -qx);
     }
 
     /**
@@ -140,8 +196,13 @@ public abstract class BaseObject {
     protected void addHitboxWireframe() {
         if (localAABB == null) return;
 
-        float x0 = localAABB.minX, y0 = localAABB.minY, z0 = localAABB.minZ;
-        float x1 = localAABB.maxX, y1 = localAABB.maxY, z1 = localAABB.maxZ;
+        AABB w = getWorldAABB();
+        if (w == null) return;
+
+        // Use world-space AABB coordinates so the wireframe is always axis-aligned
+        // and matches the actual collision volume, regardless of rotation or pivot.
+        float x0 = w.minX, y0 = w.minY, z0 = w.minZ;
+        float x1 = w.maxX, y1 = w.maxY, z1 = w.maxZ;
 
         Point3f[] pts = {
             // Bottom face
@@ -175,7 +236,9 @@ public abstract class BaseObject {
                 new LineAttributes(2f, LineAttributes.PATTERN_SOLID, true));
         wireApp.setRenderingAttributes(hitboxRA);
 
-        transformGroup.addChild(new Shape3D(la, wireApp));
+        // Attach to branchGroup (scene-root level, no transform) so the wireframe
+        // sits in world space. This means scale/rotation/pivot cannot skew it.
+        branchGroup.addChild(new Shape3D(la, wireApp));
     }
 
     // ------------------------------------------------------------------
@@ -219,10 +282,17 @@ public abstract class BaseObject {
         // Set scale
         scaleTransform.setScale(scale);
 
-        // Combine transforms: Scale -> Rotate -> Translate
+        // Combine transforms: T * R * S * T(-pivot)
         transform.mul(translationTransform);
         transform.mul(rotationTransform);
         transform.mul(scaleTransform);
+
+        // Shift model so the pivot point lands at world position
+        if (pivot.x != 0.0 || pivot.y != 0.0 || pivot.z != 0.0) {
+            Transform3D pivotTransform = new Transform3D();
+            pivotTransform.setTranslation(new Vector3d(-pivot.x, -pivot.y, -pivot.z));
+            transform.mul(pivotTransform);
+        }
 
         transformGroup.setTransform(transform);
     }
@@ -243,6 +313,10 @@ public abstract class BaseObject {
     }
 
     // Rotation methods (using quaternions - no gimbal lock!)
+
+    public Vector3d getPivot() {
+        return new Vector3d(pivot);
+    }
 
     /**
      * Set rotation using a quaternion directly.

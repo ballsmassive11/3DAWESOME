@@ -1,4 +1,4 @@
-package gui;
+package gui.overlay;
 
 import javax.swing.*;
 import java.awt.*;
@@ -6,6 +6,7 @@ import java.awt.*;
 /**
  * Transparent overlay panel that renders camera and performance stats in the top-right corner.
  * (Legacy Swing-based panel — currently unused; GuiCanvas is the active implementation.)
+ * @deprecated Replaced by {@link GuiDebugPanel}.
  */
 public class DebugPanel extends JPanel {
     private volatile double fps = 0;

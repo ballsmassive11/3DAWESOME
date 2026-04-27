@@ -13,30 +13,44 @@ void main() {
     // Start with scene ambient
     vec3 totalLight = gl_FrontMaterial.ambient.rgb * gl_LightModel.ambient.rgb;
 
-    // Accumulate contributions from all active lights (directional + point)
-    for (int i = 0; i < gl_MaxLights; i++) {
-        vec3  L;
-        float atten = 1.0;
-
+    // --- Directional light (sun) ---
+    // Java3D assigns light slots per-object based on influencing bounds, so the
+    // directional light can land at any index (not necessarily 0).  Scan for it
+    // and process it exactly once; iterating naively over gl_MaxLights would pick
+    // up stale point-light data left in unused slots from previous renders and
+    // produce view-angle-dependent shading artefacts.
+    for (int i = 0; i < 8; i++) {
         if (gl_LightSource[i].position.w < 0.5) {
-            // Directional light: position.w == 0, xyz encodes direction in eye space
-            L = normalize(vec3(gl_LightSource[i].position));
-        } else {
-            // Point light: position.w == 1, xyz is position in eye space
-            vec3  lvec = gl_LightSource[i].position.xyz - eyePos.xyz;
-            float dist = length(lvec);
-            L = normalize(lvec);
-            atten = 1.0 / (gl_LightSource[i].constantAttenuation
-                         + gl_LightSource[i].linearAttenuation    * dist
-                         + gl_LightSource[i].quadraticAttenuation * dist * dist);
+            vec3  L     = normalize(vec3(gl_LightSource[i].position));
+            float NdotL = max(dot(n, L), 0.0);
+            vec3  H     = normalize(L + E);
+            float spec  = (NdotL > 0.0) ? pow(max(dot(n, H), 0.0), gl_FrontMaterial.shininess) : 0.0;
+            totalLight += NdotL * gl_FrontMaterial.diffuse.rgb  * gl_LightSource[i].diffuse.rgb
+                        + spec  * gl_FrontMaterial.specular.rgb * gl_LightSource[i].specular.rgb;
+            break; // process only the first directional light
         }
+    }
 
-        float NdotL   = max(dot(n, L), 0.0);
-        vec3  H       = normalize(L + E);
-        float spec    = (NdotL > 0.0) ? pow(max(dot(n, H), 0.0), gl_FrontMaterial.shininess) : 0.0;
-
-        totalLight += atten * (NdotL * gl_FrontMaterial.diffuse.rgb  * gl_LightSource[i].diffuse.rgb
-                             + spec  * gl_FrontMaterial.specular.rgb * gl_LightSource[i].specular.rgb);
+    // --- Point lights (street lamps) ---
+    // Only accumulate a slot if its attenuation at this vertex is non-negligible.
+    // This filters out stale slots whose eye-space positions were baked in a
+    // previous frame under a different view matrix (the real source of the
+    // view-angle-dependent shading artefact).
+    for (int i = 0; i < 8; i++) {
+        if (gl_LightSource[i].position.w >= 0.5) {
+            vec3  lvec  = gl_LightSource[i].position.xyz - eyePos.xyz;
+            float dist  = length(lvec);
+            float atten = 1.0 / (gl_LightSource[i].constantAttenuation
+                                + gl_LightSource[i].linearAttenuation    * dist
+                                + gl_LightSource[i].quadraticAttenuation * dist * dist);
+            if (atten < 0.01) continue; // stale / too far away — skip
+            vec3  L     = normalize(lvec);
+            float NdotL = max(dot(n, L), 0.0);
+            vec3  H     = normalize(L + E);
+            float spec  = (NdotL > 0.0) ? pow(max(dot(n, H), 0.0), gl_FrontMaterial.shininess) : 0.0;
+            totalLight += atten * (NdotL * gl_FrontMaterial.diffuse.rgb  * gl_LightSource[i].diffuse.rgb
+                                 + spec  * gl_FrontMaterial.specular.rgb * gl_LightSource[i].specular.rgb);
+        }
     }
 
     vLighting       = clamp(totalLight, 0.0, 1.5);

@@ -1,4 +1,4 @@
-package gui;
+package gui.vec;
 
 /**
  * 2D size vector where each axis is composed of an absolute pixel offset
@@ -14,25 +14,25 @@ package gui;
  *
  * <pre>
  *   // 200 px wide × 200 px tall — never distorted
- *   GuiVec2.ofOffset(200, 200)
+ *   Vector2.ofOffset(200, 200)
  *
  *   // 34% of screen width × 34% of screen height — scales with window
- *   GuiVec2.ofScale(0.34f, 0.34f)
+ *   Vector2.ofScale(0.34f, 0.34f)
  *
  *   // 64 px base + 10% of screen width, same for height
- *   new GuiVec2(64, 0.10f, 64, 0.10f)
+ *   new Vector2(64, 0.10f, 64, 0.10f)
  * </pre>
  */
-public class GuiVec2 {
+public class Vector2 {
 
     /** Fixed pixel contribution on each axis. */
     public float xOffset, yOffset;
     /** Screen-fraction contribution on each axis (0-1). */
     public float xScale, yScale;
 
-    public GuiVec2() {}
+    public Vector2() {}
 
-    public GuiVec2(float xOffset, float xScale, float yOffset, float yScale) {
+    public Vector2(float xOffset, float xScale, float yOffset, float yScale) {
         this.xOffset = xOffset;
         this.xScale  = xScale;
         this.yOffset = yOffset;
@@ -40,13 +40,13 @@ public class GuiVec2 {
     }
 
     /** Pure screen-relative scale; no fixed pixel offset. */
-    public static GuiVec2 ofScale(float xScale, float yScale) {
-        return new GuiVec2(0, xScale, 0, yScale);
+    public static Vector2 ofScale(float xScale, float yScale) {
+        return new Vector2(0, xScale, 0, yScale);
     }
 
     /** Pure fixed-pixel size; unaffected by screen dimensions. */
-    public static GuiVec2 ofOffset(float xOffset, float yOffset) {
-        return new GuiVec2(xOffset, 0, yOffset, 0);
+    public static Vector2 ofOffset(float xOffset, float yOffset) {
+        return new Vector2(xOffset, 0, yOffset, 0);
     }
 
     /** Resolves the final pixel width given the canvas width. */

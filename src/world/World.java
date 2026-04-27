@@ -5,6 +5,7 @@ import entity.Player;
 import objects.BaseObject;
 import objects.MeshObject;
 import particles.Particle;
+import particles.ParticleEmitter;
 import particles.ParticleRenderer;
 import physics.AABB;
 import physics.TerrainHeightProvider;
@@ -15,12 +16,14 @@ import javax.vecmath.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class World {
-    private final List<BaseObject>  objects    = new ArrayList<>();
-    private final List<Entity>      entities   = new ArrayList<>();
-    private final List<BranchGroup> lightNodes = new ArrayList<>();
-    private final ParticleRenderer  particleRenderer = new ParticleRenderer();
+    private final List<BaseObject>      objects    = new CopyOnWriteArrayList<>();
+    private final List<Entity>          entities   = new CopyOnWriteArrayList<>();
+    private final List<BranchGroup>     lightNodes = new CopyOnWriteArrayList<>();
+    private final List<ParticleEmitter> emitters   = new CopyOnWriteArrayList<>();
+    private final ParticleRenderer      particleRenderer = new ParticleRenderer();
     private final Random            rng        = new Random();
     private double particleAccum = 0.0;
     private static final double PARTICLES_PER_SEC = 10.0;
@@ -33,6 +36,7 @@ public class World {
     private final Player player;
     private boolean hitboxesVisible = false;
     private int seed = 0;
+    private boolean physicsEnabled = true;
 
     public World() {
         this.sceneBranchGroup = new BranchGroup();
@@ -70,6 +74,7 @@ public class World {
 
     public void clearObjects() {
         MeshObject playerModel = player.getModel();
+        // Use a temporary list to avoid issues if needed, but CopyOnWriteArrayList is safe here
         for (BaseObject obj : objects) {
             if (obj != playerModel) obj.detachFromScene();
         }
@@ -101,8 +106,26 @@ public class World {
         rootOrderedGroup.addChild(node);
     }
 
+    // ------------------------------------------------------------------
+    // Particle emitters
+    // ------------------------------------------------------------------
+
+    /** Registers a {@link ParticleEmitter} to be updated every frame. */
+    public void addEmitter(ParticleEmitter emitter) {
+        emitters.add(emitter);
+    }
+
+    /** Removes a previously registered emitter. */
+    public void removeEmitter(ParticleEmitter emitter) {
+        emitters.remove(emitter);
+    }
+
+    public List<ParticleEmitter> getEmitters() {
+        return emitters;
+    }
+
     public List<BaseObject> getObjects() {
-        return new ArrayList<>(objects);
+        return objects;
     }
 
     // ------------------------------------------------------------------
@@ -122,7 +145,7 @@ public class World {
     }
 
     public List<Entity> getEntities() {
-        return new ArrayList<>(entities);
+        return entities;
     }
 
     // ------------------------------------------------------------------
@@ -175,11 +198,26 @@ public class World {
     public void setSeed(int seed)  { this.seed = seed; }
     public Lighting getLighting()  { return lighting; }
 
+    public void setPhysicsEnabled(boolean enabled) {
+        this.physicsEnabled = enabled;
+    }
+
+    public boolean isPhysicsEnabled() {
+        return physicsEnabled;
+    }
+
     // ------------------------------------------------------------------
     // Update
     // ------------------------------------------------------------------
 
     public void update(double deltaTime) {
+        // Update all static objects (animations like rotation)
+        for (BaseObject obj : objects) {
+            obj.update(deltaTime);
+        }
+
+        if (!physicsEnabled) return;
+
         // Collect collidable AABBs from static objects
         List<AABB> collidables = new ArrayList<>();
         for (BaseObject obj : objects) {
@@ -191,15 +229,16 @@ public class World {
         player.update(deltaTime, collidables);
 
         // Update all other entities
-        for (Entity e : new ArrayList<>(entities)) {
+        for (Entity e : entities) {
             e.update(deltaTime, collidables);
         }
 
-        // Animate static objects
-        for (BaseObject obj : new ArrayList<>(objects)) obj.update(deltaTime);
+        // Particle emitters
+        for (ParticleEmitter emitter : emitters) {
+            emitter.update(deltaTime, particleRenderer);
+        }
 
         // Particles
-        emitPlayerParticles(deltaTime);
         Vector3d camPos = player.getCamera().getPosition();
         particleRenderer.update(deltaTime, player.getCamera().getYaw(), player.getCamera().getPitch(),
                 camPos.x, camPos.y, camPos.z);

@@ -6,6 +6,7 @@ import javax.media.j3d.*;
 import javax.vecmath.*;
 import java.io.*;
 import java.nio.file.*;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -90,6 +91,37 @@ public class MeshObject extends BaseObject {
         }
 
         polygonCount = countPolygons(modelRoot);
+        loadModelProperties(modelPath);
+    }
+
+    /**
+     * Reads a .properties file alongside the OBJ (same path, .properties extension).
+     * Recognised keys: pivot.x, pivot.y, pivot.z.
+     * Missing file or missing keys silently use the default (0, 0, 0).
+     */
+    private void loadModelProperties(String objPath) {
+        String propsPath = objPath.replaceAll("\\.[^./\\\\]+$", ".properties");
+        Path path = Paths.get(propsPath);
+        if (!Files.exists(path)) return;
+
+        Properties props = new Properties();
+        try (InputStream in = Files.newInputStream(path)) {
+            props.load(in);
+        } catch (IOException e) {
+            System.err.println("Warning: could not read model properties: " + propsPath);
+            return;
+        }
+
+        pivot.x = parseDouble(props, "pivot.x", pivot.x);
+        pivot.y = parseDouble(props, "pivot.y", pivot.y);
+        pivot.z = parseDouble(props, "pivot.z", pivot.z);
+    }
+
+    private static double parseDouble(Properties props, String key, double defaultVal) {
+        String v = props.getProperty(key);
+        if (v == null) return defaultVal;
+        try { return Double.parseDouble(v.trim()); }
+        catch (NumberFormatException e) { return defaultVal; }
     }
 
     /** Traverses a group tree and applies trilinear mipmap filters to every texture found,

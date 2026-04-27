@@ -28,6 +28,7 @@ public class Lighting {
             new Color3f(1.0f, 1.0f, 1.0f),
             new Vector3f(-1.0f, -1.0f, -1.0f)
         );
+
         directionalLight.setCapability(DirectionalLight.ALLOW_COLOR_WRITE);
         directionalLight.setCapability(DirectionalLight.ALLOW_DIRECTION_WRITE);
         directionalLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), Double.MAX_VALUE));

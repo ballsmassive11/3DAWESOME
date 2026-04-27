@@ -1,6 +1,15 @@
 package main;
 
+import gui.canvas.GuiCanvas;
+import gui.components.GuiFrame;
+import gui.components.GuiTexture;
+import gui.components.TextButton;
+import gui.core.*;
+import gui.overlay.*;
+import gui.text.GuiText;
+import gui.vec.Vector2;
 import objects.*;
+import particles.ParticleEmitter;
 import world.*;
 import terrain.MapGenerator;
 import renderer.*;
@@ -8,11 +17,14 @@ import javax.media.j3d.Appearance;
 import javax.media.j3d.Canvas3D;
 import javax.media.j3d.Material;
 import javax.vecmath.Color3f;
+import javax.vecmath.Color4f;
 import javax.swing.*;
 import java.awt.*;
 
 
 public class Main {
+    private static boolean worldCreated = false;
+    private static MeshObject menuSuzanne;
 
     public static void main(String[] args) {
         GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -21,16 +33,107 @@ public class Main {
         System.out.println("creating the world object");
         World world = new World();
 
-        // Set the player's visible body model
-        world.setPlayerModel("resources/models/Rock/fuckassRock.obj");
+        System.out.println("creating the renderer object");
+        Game3DRenderer renderer = new Game3DRenderer(world);
 
+        final Canvas3D mainCanvas = renderer.getCanvas();
+        GuiCanvas gui = renderer.getGuiCanvas();
+
+        JFrame frame = new JFrame("Ohio impressed");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setUndecorated(true);
+        frame.add(mainCanvas);
+        frame.pack();
+
+        if (device.isFullScreenSupported()) {
+            device.setFullScreenWindow(frame);
+        } else {
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        }
+        frame.setVisible(true);
+
+        // Position camera for menu
+        world.getCamera().setPosition(0, 10, 5); // Position camera slightly back (+Z)
+        world.getCamera().setRotationDisabled(true);
+        world.setPhysicsEnabled(false);
+
+        // Ensure lighting is active for the menu
+        renderer.notifySceneReady();
+        renderer.setMenuActive(true);
+
+        // Spawn Suzanne for menu
+        menuSuzanne = new MeshObject("resources/models/Suzanne/suzanne.obj");
+        menuSuzanne.setPosition(0, 10, -5); // Suzanne remains at -5
+        menuSuzanne.setScale(3.5); // Larger scale to match the one in createWorldContent
+        menuSuzanne.setColor(new Color3f(1.0f, 0.7f, 0.2f)); // Bright gold-ish color
+        menuSuzanne.setAngularVelocity(0, 1.5, 0);
+        world.addObject(menuSuzanne);
+
+        // Show main menu immediately
+        MainMenu mainMenu = new MainMenu();
+        mainMenu.setOnCreateWorld(() -> {
+            if (worldCreated) return;
+            worldCreated = true;
+            
+            // Immediately show loading screen
+            gui.showLoadingScreen();
+            
+            // Run generation in a background thread to keep the loading screen rendering
+            new Thread(() -> {
+                try {
+                    // Start removing menu elements from the background thread might be risky, 
+                    // but guiObjects is thread-safe (CopyOnWriteArrayList).
+                    mainMenu.setVisible(false);
+                    gui.removeObject(mainMenu);
+                    
+                    // Cleanup menu model
+                    if (menuSuzanne != null) {
+                        world.removeObject(menuSuzanne);
+                        menuSuzanne = null;
+                    }
+                    world.getCamera().setRotationDisabled(false);
+                    renderer.setMenuActive(false);
+                    world.setPhysicsEnabled(true);
+                    
+                    // Generate world content (heavy task)
+                    gui.setLoadingProgress(0.05f, "Preparing world...");
+                    createWorldContent(world, renderer);
+                    
+                    gui.setLoadingProgress(1.0f, "Done!");
+                    
+                    // Once done, switch back to EDT to hide loading screen and show HUD
+                    SwingUtilities.invokeLater(() -> {
+                        gui.hideLoadingScreen();
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }).start();
+        });
+        gui.addObject(mainMenu);
+
+        System.out.println("Main menu loaded");
+    }
+
+    private static void createWorldContent(World world, Game3DRenderer renderer) {
+        GuiCanvas gui = renderer.getGuiCanvas();
+        System.out.println("Generating world content...");
+        renderer.notifySceneChanging();
+
+        // Set the player's visible body model
+        gui.setLoadingProgress(0.05f, "Loading player model...");
+        world.setPlayerModel("resources/models/Guy/guy.obj");
+
+        gui.setLoadingProgress(0.1f, "Initializing map generator...");
         MapGenerator mapGen = new MapGenerator();
-        //mapGen.setGeneratorToNoise();
+        mapGen.setReporter((p, s) -> gui.setLoadingProgress(0.1f + p * 0.6f, s));
         int seed = (int) System.currentTimeMillis();
         mapGen.setSeed(seed);
         world.setSeed(seed);
+        
         mapGen.generate(world);
 
+        gui.setLoadingProgress(0.75f, "Spawning world objects...");
         Cube cube = new Cube(5);
         cube.setPosition(0, 10, 20);
         world.addObject(cube);
@@ -43,13 +146,31 @@ public class Main {
         suzanne.setAngularVelocity(0, 1.0, 0); // Rotate the monkey head
         world.addObject(suzanne);
 
-        MeshObject boat = new MeshObject("resources/models/Boat/boat2.obj",true);
+        // Happy particles raining from above Suzanne's head
+        world.addEmitter(new ParticleEmitter(0.0, 13.5, -8.0)
+                .setSpawnMode(ParticleEmitter.SpawnMode.BRICK)
+                .setBrickSize(4f, 0.1f, 4f)
+                .setEmissionRate(25)
+                .setPitch(-Math.PI / 2)   // straight down
+                .setSpread(0.2)
+                .setSpeed(3.5)
+                .setStartColor(new Color4f(1f, 1f, 1f, 1f))
+                .setEndColor(new Color4f(1f, 1f, 1f, 0f))
+                .setStartSize(1.2f)
+                .setEndSize(0.6f)
+                .setLifetime(2.0f)
+                .setGravityScale(0.1f)
+                .setRotationSpeed(90f)
+                .setAtlasPath("resources/particles/happyhappyhappy.png"));
+
+        MeshObject boat = new MeshObject("resources/models/Boat/boat2.obj", true);
         boat.setPosition(-8.0f, 11.0f, -8.0f);
         boat.setScale(3.5f);
         boat.setAngularVelocity(0, 1.0, 0); // Rotate the monkey head
         world.addObject(boat);
 
         // Add the Ruger model object with textures
+        gui.setLoadingProgress(0.8f, "Loading models...");
         MeshObject ruger = new MeshObject("resources/models/Ruger/ruger.obj", true);
         ruger.setPosition(-2.0f, 10.0f, 2.0f);
         ruger.setScale(2.0f);
@@ -65,33 +186,51 @@ public class Main {
         world.addObject(ruger);
 
         MeshObject rock = new MeshObject("resources/models/Rock/fuckassRock.obj", true);
-        rock.setPosition(-8.0f, 30.0f, 8.0f);
+        rock.setPosition(-8.0f, 60.0f, 8.0f);
         rock.setScale(12.0f);
         rock.setAngularVelocity(20, 35.5, -12); // Rotate the gun
         world.addObject(rock);
 
+        gui.setLoadingProgress(0.9f, "Setting up GUI...");
+        GuiText welcomeText = new GuiText(GuiCanvas.ARIAL, "Ohio Impressed", Vector2.ofScale(0.5f, 0.1f));
+        welcomeText.setPixelHeight(64f);
+        welcomeText.setColor(new Color(255, 200, 0));
+        welcomeText.setLetterSpacing(-2f);
+        gui.addText(welcomeText);
 
-        System.out.println("creating the renderer object");
-        Game3DRenderer renderer = new Game3DRenderer(world);
+        GuiFrame textBg = new GuiFrame(Vector2.ofScale(0.5f, 0.1f), Vector2.ofOffset(500, 100), new Color(0, 0, 0, 128));
+        textBg.setCentered(true);
+        textBg.setRotation(5.0); // Slightly rotated as requested
+        textBg.setBorderWidth(2f);
+        gui.addFrame(textBg);
 
+        GuiTexture crop = new GuiTexture("/gui/SreTransparentCrop.png");
+        crop.setCentered(true);
+        crop.setPosition(new Vector2(100f,0.1f,200f, 0.1f));
+        crop.setSize(Vector2.ofOffset(250f, 300f));
+        crop.setVisible(true);
+        gui.addTexture(crop);
 
+        GuiTexture joey = new GuiTexture("/gui/joey.png");
+        joey.setCentered(true);
+        joey.setPosition(new Vector2(100f,0.1f,200f, 0.5f));
+        joey.setSize(Vector2.ofOffset(250f, 250));
+        joey.setVisible(true);
+        gui.addTexture(joey);
 
-        final Canvas3D mainCanvas = renderer.getCanvas();
+        TextButton spawnSuzanne = new TextButton("Spawn Suzanne", Vector2.ofScale(0.15f, 0.9f), Vector2.ofOffset(200, 50));
+        spawnSuzanne.addClickListener(btn -> {
+            MeshObject newSuzanne = new MeshObject("resources/models/Suzanne/suzanne.obj");
+            newSuzanne.setPosition((float) (Math.random() * 20 - 10), 15.0f, (float) (Math.random() * 20 - 10));
+            newSuzanne.setScale(2.5f);
+            newSuzanne.setColor(new Color3f((float) Math.random(), (float) Math.random(), (float) Math.random()));
+            newSuzanne.setAngularVelocity(0, Math.random() * 2, 0);
+            world.addObject(newSuzanne);
+        });
+        gui.addObject(spawnSuzanne);
 
-        JFrame frame = new JFrame("Ohio impressed");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setUndecorated(true);
-        frame.add(mainCanvas);
-        frame.pack();
-
-        if (device.isFullScreenSupported()) {
-            device.setFullScreenWindow(frame);
-        } else {
-            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        }
-
-        frame.setVisible(true);
-
-        System.out.println("done");
+        gui.setLoadingProgress(0.95f, "Finalizing scene...");
+        renderer.notifySceneReady();
+        System.out.println("World content generated.");
     }
 }

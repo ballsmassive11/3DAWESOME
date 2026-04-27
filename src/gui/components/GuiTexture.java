@@ -1,4 +1,7 @@
-package gui;
+package gui.components;
+
+import gui.core.GuiLabel;
+import gui.vec.Vector2;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -10,15 +13,15 @@ import java.io.InputStream;
 /**
  * A GUI element that renders a PNG or JPG image onto the screen.
  *
- * <p>Position and size both use {@link GuiVec2}, where each axis resolves as
+ * <p>Position and size both use {@link Vector2}, where each axis resolves as
  * {@code offset + scale * screenDimension}.  The anchor point is the top-left
  * corner of the image unless {@code centered} is true.
  *
  * <pre>
  *   GuiTexture crosshair = new GuiTexture("/gui/crosshair.png");
  *   crosshair.setCentered(true);
- *   crosshair.setPosition(GuiVec2.ofScale(0.5f, 0.5f)); // middle of screen
- *   crosshair.setSize(GuiVec2.ofOffset(64, 64));         // fixed 64×64 px
+ *   crosshair.setPosition(Vector2.ofScale(0.5f, 0.5f)); // middle of screen
+ *   crosshair.setSize(Vector2.ofOffset(64, 64));         // fixed 64×64 px
  *   crosshair.setAlpha(0.9f);
  * </pre>
  *
@@ -26,19 +29,17 @@ import java.io.InputStream;
  * {@link GuiCanvas#postRender()} (or any other {@link Graphics2D} context)
  * to render the element.
  */
-public class GuiTexture {
+public class GuiTexture extends GuiLabel {
 
     private BufferedImage image;
-    /** Position vector: each axis combines a fixed pixel offset and a screen-relative scale. */
-    private GuiVec2 position = new GuiVec2(0, 0f, 0, 0f);
     /** Size vector: each axis combines a fixed pixel offset and a screen-relative scale. */
-    private GuiVec2 size = new GuiVec2(0, 0.1f, 0, 0.1f);
+    private Vector2 size = new Vector2(0, 0.1f, 0, 0.1f);
     /** Opacity: 0 = fully transparent, 1 = fully opaque. */
     private float alpha = 1f;
     /** When true, the position is treated as the center rather than the top-left corner. */
     private boolean centered = false;
-    /** Whether this element should be drawn at all. */
-    private boolean visible = true;
+    /** Rotation in radians. */
+    private double rotation = 0;
 
     // ------------------------------------------------------------------
     // Construction / loading
@@ -59,10 +60,10 @@ public class GuiTexture {
      * Creates a GuiTexture and sets its position and size immediately.
      *
      * @param path     path to a PNG or JPG image
-     * @param position position vector (see {@link GuiVec2})
-     * @param size     size vector (see {@link GuiVec2})
+     * @param position position vector (see {@link Vector2})
+     * @param size     size vector (see {@link Vector2})
      */
-    public GuiTexture(String path, GuiVec2 position, GuiVec2 size) {
+    public GuiTexture(String path, Vector2 position, Vector2 size) {
         load(path);
         this.position = position;
         this.size = size;
@@ -114,6 +115,7 @@ public class GuiTexture {
      * @param canvasWidth  current canvas width in pixels
      * @param canvasHeight current canvas height in pixels
      */
+    @Override
     public void draw(Graphics2D g2, int canvasWidth, int canvasHeight) {
         if (!visible || image == null) return;
 
@@ -122,9 +124,12 @@ public class GuiTexture {
         int pw = size.resolveX(canvasWidth);
         int ph = size.resolveY(canvasHeight);
 
+        int drawX = px;
+        int drawY = py;
+
         if (centered) {
-            px -= pw / 2;
-            py -= ph / 2;
+            drawX -= pw / 2;
+            drawY -= ph / 2;
         }
 
         Composite prevComposite = g2.getComposite();
@@ -132,7 +137,17 @@ public class GuiTexture {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         }
 
-        g2.drawImage(image, px, py, pw, ph, null);
+        if (rotation != 0) {
+            java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+            // Rotate around the center of the image
+            int centerX = drawX + pw / 2;
+            int centerY = drawY + ph / 2;
+            g2.rotate(rotation, centerX, centerY);
+            g2.drawImage(image, drawX, drawY, pw, ph, null);
+            g2.setTransform(oldTransform);
+        } else {
+            g2.drawImage(image, drawX, drawY, pw, ph, null);
+        }
 
         if (alpha < 1f) {
             g2.setComposite(prevComposite);
@@ -146,13 +161,9 @@ public class GuiTexture {
     /** Returns the raw loaded image. */
     public BufferedImage getImage() { return image; }
 
-    /** Position vector controlling anchor point via offset + scale per axis. */
-    public GuiVec2 getPosition() { return position; }
-    public void setPosition(GuiVec2 position) { this.position = position; }
-
     /** Size vector controlling width and height via offset + scale per axis. */
-    public GuiVec2 getSize() { return size; }
-    public void setSize(GuiVec2 size) { this.size = size; }
+    public Vector2 getSize() { return size; }
+    public void setSize(Vector2 size) { this.size = size; }
 
     /** Opacity: 0 = fully transparent, 1 = fully opaque. */
     public float getAlpha() { return alpha; }
@@ -165,7 +176,6 @@ public class GuiTexture {
     public boolean isCentered() { return centered; }
     public void setCentered(boolean centered) { this.centered = centered; }
 
-    /** Whether this element is drawn. Defaults to {@code true}. */
-    public boolean isVisible() { return visible; }
-    public void setVisible(boolean visible) { this.visible = visible; }
+    public double getRotation() { return rotation; }
+    public void setRotation(double rotation) { this.rotation = rotation; }
 }

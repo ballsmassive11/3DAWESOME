@@ -31,6 +31,7 @@ public class Camera {
 
     private final Set<Integer> activeKeys = new HashSet<>();
     private boolean jumpRequested = false;
+    private boolean rotationDisabled = false;
 
     /**
      * Constructs a Camera that shares the given position vector.
@@ -55,10 +56,12 @@ public class Camera {
      * {@link #applyMovement}.
      */
     public void update(double deltaTime) {
-        if (activeKeys.contains(KeyEvent.VK_LEFT))  yaw   += turnSpeed * deltaTime;
-        if (activeKeys.contains(KeyEvent.VK_RIGHT)) yaw   -= turnSpeed * deltaTime;
-        if (activeKeys.contains(KeyEvent.VK_UP))    pitch += turnSpeed * deltaTime;
-        if (activeKeys.contains(KeyEvent.VK_DOWN))  pitch -= turnSpeed * deltaTime;
+        if (!rotationDisabled) {
+            if (activeKeys.contains(KeyEvent.VK_LEFT))  yaw   += turnSpeed * deltaTime;
+            if (activeKeys.contains(KeyEvent.VK_RIGHT)) yaw   -= turnSpeed * deltaTime;
+            if (activeKeys.contains(KeyEvent.VK_UP))    pitch += turnSpeed * deltaTime;
+            if (activeKeys.contains(KeyEvent.VK_DOWN))  pitch -= turnSpeed * deltaTime;
+        }
 
         double limit = Math.PI / 2.1;
         if (pitch >  limit) pitch =  limit;
@@ -109,6 +112,10 @@ public class Camera {
 
     public void keyReleased(int keyCode) {
         activeKeys.remove(keyCode);
+    }
+
+    public void setRotationDisabled(boolean disabled) {
+        this.rotationDisabled = disabled;
     }
 
     /** Returns true while the Shift key is held. */

@@ -1,4 +1,4 @@
-package gui;
+package gui.commands;
 
 /**
  * Fired when the player submits text via the command HUD input bar.
