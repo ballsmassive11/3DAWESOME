@@ -1,6 +1,7 @@
 uniform sampler2D waterDuDvTex;   // unit 0
 uniform sampler2D waterNormalTex; // unit 1
 uniform float time;
+uniform float daylightFactor;
 
 varying vec2 vTC;
 varying vec3 vEyeNormal;
@@ -28,7 +29,8 @@ void main() {
     // ---- Lighting --------------------------------------------------------------
     float diffuse = max(dot(N, vSpecDir), 0.0);
     // Raise the dark floor so backlit ripple faces don't go too black
-    vec3 color = WATER_COLOR * (0.65 + 0.35 * diffuse);
+    // Multiply by daylightFactor to darken the water at night
+    vec3 color = WATER_COLOR * (0.65 + 0.35 * diffuse) * (0.3 + 0.7 * daylightFactor);
 
     // Specular
     vec3 R = reflect(-vSpecDir, N);

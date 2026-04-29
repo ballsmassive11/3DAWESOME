@@ -9,8 +9,10 @@ import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 import com.sun.j3d.utils.universe.ViewingPlatform;
+import gui.overlay.UnderwaterOverlay;
 import physics.AABB;
 import physics.TerrainHeightProvider;
+import water.WaterTile;
 import java.util.HashSet;
 import java.util.Set;
 import java.awt.*;
@@ -33,6 +35,7 @@ public class Game3DRenderer {
     private LinearFog fog;
     private Skybox skybox;
     private DayNightCycle dayNightCycle;
+    private UnderwaterOverlay underwaterOverlay;
     private boolean skyboxIsDay = true; // No longer strictly needed but kept for other logic if any
 
     // Guard against calling setColor() on lights while the render structure is being rebuilt
@@ -118,6 +121,9 @@ public class Game3DRenderer {
         viewingPlatform = universe.getViewingPlatform();
         viewTransformGroup = viewingPlatform.getViewPlatformTransform();
 
+        underwaterOverlay = new UnderwaterOverlay();
+        canvas.addObject(underwaterOverlay);
+
         syncCamera();
         setupScene();
     }
@@ -179,6 +185,9 @@ public class Game3DRenderer {
         // Keep the skybox fog gradient in sync so it transitions smoothly rather than snapping
         if (skybox != null) skybox.setFogOverlayColor(fogColor);
 
+        // Water darkening
+        WaterTile.setDaylightFactor((float) dayNightCycle.getDaylightFactor());
+
         // Skybox cross-fade
         boolean nowDay = dayNightCycle.isDay();
         float step = (float) (deltaTime / TRANS_SECS);
@@ -219,6 +228,10 @@ public class Game3DRenderer {
         double camX = lookAt.x + sinY * cosP * r;
         double camY = lookAt.y - sinP * r;
         double camZ = lookAt.z + cosY * cosP * r;
+
+        if (underwaterOverlay != null) {
+            underwaterOverlay.setVisible(camY < 0);
+        }
 
         Transform3D transform = new Transform3D();
         Transform3D rotation  = new Transform3D();

@@ -20,28 +20,56 @@ import java.nio.file.Paths;
  */
 public class WaterTile extends BaseObject {
 
-    /** Side length of each tile in world units. */
+    /** Default side length of each tile in world units (kept for reference / legacy use). */
     public static final float TILE_SIZE = 150f;
 
     private static final String SHADER_DIR   = "resources/water/";
     private static final long   START_MILLIS = System.currentTimeMillis();
 
     // Shared across all tiles (loaded once)
+    private static float           sDaylightFactor = 1.0f;
     private static Texture2D         sDudvTex    = null;
     private static Texture2D         sNormalTex  = null;
     private static GLSLShaderProgram sShaderProg = null;
 
-    // Per-tile: allows each tile to push its own time value after the scene goes live
     private ShaderAttributeValue timeAttr;
+    private ShaderAttributeValue daylightFactorAttr;
+    private ShaderAttributeValue tileCenterXAttr;
+    private ShaderAttributeValue tileCenterZAttr;
+
+    /** Actual side length for this tile instance. */
+    private final float size;
 
     /**
-     * @param cx centre X in world space
-     * @param cz centre Z in world space
+     * @param cx   centre X in world space
+     * @param cz   centre Z in world space
+     * @param size side length in world units
      */
-    public WaterTile(float cx, float cz) {
-        super();
+    public WaterTile(float cx, float cz, float size) {
+        super();  // calls initializeAppearance() → timeAttr set there
+        this.size = size;
+
+        // Add world-space center uniforms now that cx/cz are available.
+        // The appearance is not live yet, so mutating its ShaderAttributeSet is safe.
+        if (timeAttr != null) {
+            ShaderAttributeSet attrs = ((ShaderAppearance) appearance).getShaderAttributeSet();
+
+            tileCenterXAttr = new ShaderAttributeValue("tileCenterX", cx);
+            tileCenterXAttr.setCapability(ShaderAttributeValue.ALLOW_VALUE_WRITE);
+            tileCenterZAttr = new ShaderAttributeValue("tileCenterZ", cz);
+            tileCenterZAttr.setCapability(ShaderAttributeValue.ALLOW_VALUE_WRITE);
+
+            attrs.put(tileCenterXAttr);
+            attrs.put(tileCenterZAttr);
+        }
+
         setPosition(cx, 0.0, cz);
         setCollidable(false);
+    }
+
+    /** Convenience constructor using the default {@link #TILE_SIZE}. */
+    public WaterTile(float cx, float cz) {
+        this(cx, cz, TILE_SIZE);
     }
 
     // ------------------------------------------------------------------
@@ -56,7 +84,7 @@ public class WaterTile extends BaseObject {
 
     @Override
     protected Shape3D createGeometry() {
-        float h = TILE_SIZE / 2f;
+        float h = size / 2f;
 
         // Both texture units sample from the same UV set (coord set 0)
         int[] texMap = { 0, 0 };
@@ -75,7 +103,9 @@ public class WaterTile extends BaseObject {
         Vector3f up = new Vector3f(0f, 1f, 0f);
         for (int i = 0; i < 4; i++) quad.setNormal(i, up);
 
-        // UV 0–1 across the tile; the vertex shader scales by ×4 for tiling density
+        // UVs are no longer used by the shader (it derives coordinates from world-space
+        // position via tileCenterX/Z uniforms), but Java3D requires the attribute array
+        // when TextureUnitState slots are bound.
         quad.setTextureCoordinate(0, 0, new TexCoord2f(0f, 0f));
         quad.setTextureCoordinate(0, 1, new TexCoord2f(1f, 0f));
         quad.setTextureCoordinate(0, 2, new TexCoord2f(1f, 1f));
@@ -84,7 +114,7 @@ public class WaterTile extends BaseObject {
         return new Shape3D(quad);
     }
 
-    /** Push elapsed time (seconds) to the shader uniform every frame. */
+    /** Push elapsed time (seconds) and daylight factor to the shader uniform every frame. */
     @Override
     public void update(double deltaTime) {
         super.update(deltaTime);
@@ -92,6 +122,13 @@ public class WaterTile extends BaseObject {
             float t = (System.currentTimeMillis() - START_MILLIS) * 0.001f;
             timeAttr.setValue(t);
         }
+        if (daylightFactorAttr != null) {
+            daylightFactorAttr.setValue(sDaylightFactor);
+        }
+    }
+
+    public static void setDaylightFactor(float factor) {
+        sDaylightFactor = factor;
     }
 
     // ------------------------------------------------------------------
@@ -130,14 +167,18 @@ public class WaterTile extends BaseObject {
         if (sShaderProg != null) {
             app.setShaderProgram(sShaderProg);
 
-            // time uniform — ALLOW_VALUE_WRITE must be set before the node goes live
+            // uniforms — ALLOW_VALUE_WRITE must be set before the node goes live
             timeAttr = new ShaderAttributeValue("time", 0.0f);
             timeAttr.setCapability(ShaderAttributeValue.ALLOW_VALUE_WRITE);
+
+            daylightFactorAttr = new ShaderAttributeValue("daylightFactor", sDaylightFactor);
+            daylightFactorAttr.setCapability(ShaderAttributeValue.ALLOW_VALUE_WRITE);
 
             ShaderAttributeSet attrs = new ShaderAttributeSet();
             attrs.put(new ShaderAttributeValue("waterDuDvTex",   0));
             attrs.put(new ShaderAttributeValue("waterNormalTex", 1));
             attrs.put(timeAttr);
+            attrs.put(daylightFactorAttr);
             app.setShaderAttributeSet(attrs);
         }
 
@@ -167,7 +208,8 @@ public class WaterTile extends BaseObject {
             sShaderProg = new GLSLShaderProgram();
             sShaderProg.setShaders(new Shader[]{ vs, fs });
             sShaderProg.setShaderAttrNames(
-                    new String[]{ "waterDuDvTex", "waterNormalTex", "time" });
+                    new String[]{ "waterDuDvTex", "waterNormalTex", "time", "daylightFactor",
+                                  "tileCenterX", "tileCenterZ" });
         } catch (IOException e) {
             System.err.println("[WaterTile] Failed to load water shaders: " + e.getMessage());
         }

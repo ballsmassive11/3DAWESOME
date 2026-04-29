@@ -33,6 +33,13 @@ public abstract class BaseObject {
     // Default (0,0,0) means the model origin is the world-position anchor.
     protected Vector3d pivot = new Vector3d(0.0, 0.0, 0.0);
 
+    // True once getBranchGroup() has populated the scene sub-tree; subsequent calls
+    // return the already-built branchGroup without rebuilding geometry.
+    private boolean geometryBuilt = false;
+
+    // The built Shape3D, stored so applyAppearance() can update it after construction.
+    protected Shape3D builtShape = null;
+
     /**
      * Constructor initializes the object with default values.
      */
@@ -252,14 +259,32 @@ public abstract class BaseObject {
     }
 
     public BranchGroup getBranchGroup() {
-        Shape3D shape = createGeometry();
-        polygonCount = countPolygons(shape);
-        shape.setAppearance(appearance);
-        transformGroup.addChild(shape);
-        branchGroup.addChild(transformGroup);
-        addHitboxWireframe();
-        updateTransform();
+        if (!geometryBuilt) {
+            builtShape = createGeometry();
+            polygonCount = countPolygons(builtShape);
+            builtShape.setAppearance(appearance);
+            transformGroup.addChild(builtShape);
+            branchGroup.addChild(transformGroup);
+            addHitboxWireframe();
+            updateTransform();
+            geometryBuilt = true;
+        }
         return branchGroup;
+    }
+
+    /**
+     * Re-applies the current {@link #appearance} to the built shape.
+     * <p>
+     * Use this when you want to defer binding a shared live {@code NodeComponent}
+     * (e.g. a {@code ShaderAppearance} already referenced by live scene nodes) to
+     * the main thread, avoiding lock contention from background generation threads.
+     * Call after {@link #getBranchGroup()} and before the object is added to the
+     * live scene.
+     */
+    public void applyAppearance() {
+        if (builtShape != null) {
+            builtShape.setAppearance(appearance);
+        }
     }
 
     /**

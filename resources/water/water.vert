@@ -1,4 +1,6 @@
 uniform float time;
+uniform float tileCenterX;
+uniform float tileCenterZ;
 
 varying vec2 vTC;
 varying vec3 vEyeNormal;
@@ -34,7 +36,12 @@ vec3 findDirLightSpecColor() {
 }
 
 void main() {
-    vTC = gl_MultiTexCoord0.st * 4.0;
+    // World-space XZ → continuous UV across all tiles.
+    // 37.5 WU per texture repeat (= default TILE_SIZE 150 / tileRepeat 4).
+    // Because this uses absolute world coords, adjacent tiles always produce
+    // matching UV values at their shared edges, eliminating visible seams.
+    vec2 worldXZ = vec2(tileCenterX, tileCenterZ) + gl_Vertex.xz;
+    vTC = worldXZ / 37.5;
 
     vec4 eyePos4 = gl_ModelViewMatrix * gl_Vertex;
     vEyePos      = eyePos4.xyz;

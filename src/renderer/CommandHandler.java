@@ -109,6 +109,25 @@ public class CommandHandler {
                 hud.logOutput("Shift lock " + (now ? "ON" : "OFF"));
             }
 
+        } else if (cmd.equals("jumpheight") && parts.length == 2) {
+            try {
+                float h = Float.parseFloat(parts[1]);
+                world.getPlayer().getPhysics().setJumpSpeed(h);
+                hud.logOutput("Jump height (speed) set to " + h);
+            } catch (NumberFormatException e) {
+                hud.logOutput("Invalid value: " + parts[1]);
+            }
+
+        } else if (cmd.equals("movespeed") && parts.length == 2) {
+            try {
+                double s = Double.parseDouble(parts[1]);
+                world.getPlayer().getCamera().setMoveSpeed(s);
+                world.getPlayer().getPhysics().setFlySpeed((float) s * 1.6f); // Affect fly speed too
+                hud.logOutput("Movement speed set to " + s);
+            } catch (NumberFormatException e) {
+                hud.logOutput("Invalid value: " + parts[1]);
+            }
+
         } else if (cmd.equals("quality")) { // changes game quality
             if (parts.length < 2) {
                 hud.logOutput("Quality: " + GameSettings.quality + "/10");
@@ -159,6 +178,8 @@ public class CommandHandler {
             hud.logOutput("time <0.0-1.0>          - Set time (0=midnight 0.25=dawn 0.5=noon 0.75=dusk)");
             hud.logOutput("time pause|resume        - Pause or resume the day/night cycle");
             hud.logOutput("time speed <secs>       - Set cycle duration in seconds (default 120)");
+            hud.logOutput("movespeed <val>             - Set movement speed");
+            hud.logOutput("jumpheight <val>        - Set jump power");
             hud.logOutput("quality <1-10>          - Set game quality");
             hud.logOutput("fun                     - would recommend turning render distance down");
             hud.logOutput("cmds / help             - Show this message");
