@@ -1,10 +1,12 @@
 varying vec2  vTexCoord;
 varying float vBlendT;
 varying vec3  vLighting;
+varying vec3  vBiomeWeights;
 
 void main() {
-    vTexCoord = gl_MultiTexCoord0.st;
-    vBlendT   = gl_Color.a;
+    vTexCoord     = gl_MultiTexCoord0.st;
+    vBiomeWeights = gl_Color.rgb;
+    vBlendT       = gl_Color.a;
 
     vec4 eyePos = gl_ModelViewMatrix * gl_Vertex;
     vec3 n = normalize(gl_NormalMatrix * gl_Normal);

@@ -3,6 +3,11 @@ package entity;
 import physics.AABB;
 import world.Camera;
 
+import javax.media.j3d.BoundingSphere;
+import javax.media.j3d.PointLight;
+import javax.vecmath.Color3f;
+import javax.vecmath.Point3d;
+import javax.vecmath.Point3f;
 import java.util.List;
 
 /**
@@ -23,6 +28,7 @@ public class Player extends Entity {
     private static final double ROTATION_DAMPING   = 11.0;
 
     private final Camera camera;
+    private final PointLight pointLight;
     private boolean shiftLockEnabled = false;
     private double  angularVelocity  = 0.0;
     private double  targetYaw        = 0.0;
@@ -31,6 +37,16 @@ public class Player extends Entity {
         super(); // initialises position to (0, 15, 5), creates EntityPhysics
         // Pass the shared position to Camera so both always see the same vector
         this.camera = new Camera(position);
+
+        // Initialise point light attached to player
+        this.pointLight = new PointLight();
+        pointLight.setColor(new Color3f(1.0f, 0.95f, 0.8f)); // Warm white
+        pointLight.setPosition(new Point3f((float)position.x, (float)position.y, (float)position.z));
+        pointLight.setAttenuation(new Point3f(1.0f, 0.05f, 0.005f));
+        pointLight.setCapability(PointLight.ALLOW_POSITION_WRITE);
+        pointLight.setCapability(PointLight.ALLOW_STATE_WRITE);
+        pointLight.setCapability(PointLight.ALLOW_COLOR_WRITE);
+        pointLight.setInfluencingBounds(new BoundingSphere(new Point3d(0, 0, 0), Double.MAX_VALUE));
     }
 
     @Override
@@ -74,11 +90,18 @@ public class Player extends Entity {
 
         // 5. Move the visible body model to match
         syncModelTransform();
+
+        // 6. Update point light position
+        pointLight.setPosition(new Point3f((float)position.x, (float)position.y, (float)position.z));
     }
 
     /** The camera used for view/input — its position IS the entity position. */
     public Camera getCamera() {
         return camera;
+    }
+
+    public PointLight getPointLight() {
+        return pointLight;
     }
 
     public boolean isShiftLockEnabled() { return shiftLockEnabled; }

@@ -11,7 +11,7 @@ import javax.vecmath.Vector3f;
 public class DayNightCycle {
 
     private double timeOfDay = 0.3; // start shortly after sunrise
-    private double cycleDuration = 120.0; // seconds for one full day
+    private double cycleDuration = 160.0; // seconds for one full day
     private boolean paused = false;
 
     // --- Day colors (noon) ---
@@ -20,7 +20,7 @@ public class DayNightCycle {
     private static final Color3f DAY_FOG     = new Color3f(0.9f,  0.9f,  0.9f);
 
     // --- Night colors (midnight) — moonlight: cool silver-blue, bright enough for water specular ---
-    private static final Color3f NIGHT_AMBIENT = new Color3f(0.13f, 0.13f, 0.26f);
+    private static final Color3f NIGHT_AMBIENT = new Color3f(0.08f, 0.08f, 0.21f);
     private static final Color3f NIGHT_SUN     = new Color3f(0.22f, 0.24f, 0.38f);
     private static final Color3f NIGHT_FOG     = new Color3f(0.03f, 0.03f, 0.10f);
 

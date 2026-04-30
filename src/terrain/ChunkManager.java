@@ -211,7 +211,7 @@ public class ChunkManager {
             mesh.getBranchGroup(); // triggers geometry construction and caches it
 
             List<WaterTile>   water = buildWaterTiles(wx0, wz0, n, heights);
-            List<MeshObject>  trees = buildTrees(coord, wx0, wz0, n, heights, riverVals);
+            List<MeshObject>  trees = buildTrees(coord, wx0, wz0, n, heights, riverVals, generator);
             List<ParticleEmitter> emitters = buildLeafEmitters(trees);
 
             // Pack terrain mesh + all trees into a single BranchGroup so the live scene
@@ -302,14 +302,15 @@ public class ChunkManager {
     // -----------------------------------------------------------------------
 
     private static final String TREE_PATH    = "resources/models/Tree/Lowpoly_tree_sample.obj";
-    private static final float  TREE_DENSITY = 0.008f;
-    private static final float  RIVER_WIDTH  = 0.40f;
+    private static final float  TREE_DENSITY = 0.012f;
+    private static final float  RIVER_WIDTH  = 0.15f;
     private static final double TREE_SCALE_MIN = 4.5;
     private static final double TREE_SCALE_MAX = 7.5;
 
     private static List<MeshObject> buildTrees(ChunkCoord coord,
                                                 float wx0, float wz0, int n,
-                                                float[] heights, float[] riverVals) {
+                                                float[] heights, float[] riverVals,
+                                                MapGenerator generator) {
         // Deterministic seed per chunk so re-generation produces the same trees.
         long seed = ((long) coord.x * 73856093L) ^ ((long) coord.z * 19349663L) ^ 77L;
         Random rng = new Random(seed);
@@ -317,14 +318,36 @@ public class ChunkManager {
         List<MeshObject> trees = new ArrayList<>();
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
-                if (rng.nextFloat() > TREE_DENSITY) continue;
-                float h = heights[r * n + c];
-                if (h < 0.2f) continue;
-                if (riverVals != null && riverVals[r * n + c] < RIVER_WIDTH) continue;
-
                 float wx = wx0 + c * CELL_SIZE;
                 float wz = wz0 + r * CELL_SIZE;
-                double scale = TREE_SCALE_MIN + (TREE_SCALE_MAX - TREE_SCALE_MIN) * rng.nextDouble();
+                String biome = generator.getBiomeAt(wx, wz);
+
+                float density = TREE_DENSITY;
+                double scaleMin = TREE_SCALE_MIN;
+                double scaleMax = TREE_SCALE_MAX;
+
+                if (biome.equals("Desert")) {
+                    density = 0.001f;
+                } else if (biome.equals("Tundra")) {
+                    density = 0.0f;
+                    scaleMin *= 0.6;
+                    scaleMax *= 0.6;
+                } else if (biome.equals("Forest")) {
+                    density = 0.06f;
+                } else if (biome.equals("Steppe")) {
+                    density = 0.005f;
+                } else if (biome.equals("Meadow")) {
+                    density = 0.03f;
+                } else if (biome.equals("Stony Peaks")) {
+                    density = 0.0f;
+                }
+
+                if (rng.nextFloat() > density) continue;
+                float h = heights[r * n + c];
+                if (h < 0.1f) continue;
+                if (riverVals != null && riverVals[r * n + c] < RIVER_WIDTH) continue;
+
+                double scale = scaleMin + (scaleMax - scaleMin) * rng.nextDouble();
 
                 MeshObject tree = new MeshObject(TREE_PATH, true);
                 tree.setCollidable(true);

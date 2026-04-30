@@ -12,6 +12,7 @@ import com.sun.j3d.utils.universe.ViewingPlatform;
 import gui.overlay.UnderwaterOverlay;
 import physics.AABB;
 import physics.TerrainHeightProvider;
+import terrain.MapGenerator;
 import water.WaterTile;
 import java.util.HashSet;
 import java.util.Set;
@@ -404,7 +405,12 @@ public class Game3DRenderer {
     public void updateHud(double fps, double x, double y, double z,
                           double yaw, double pitch, int objects, int polygons,
                           int seed, boolean flying) {
-        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying);
+        String biome = "Unknown";
+        TerrainHeightProvider provider = world.getTerrainProvider();
+        if (provider instanceof MapGenerator) {
+            biome = ((MapGenerator) provider).getBiomeAt((float) x, (float) z);
+        }
+        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying, biome);
     }
 
     public DayNightCycle getDayNightCycle() { return dayNightCycle; }

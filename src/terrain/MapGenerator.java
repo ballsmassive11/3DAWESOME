@@ -45,9 +45,10 @@ public class MapGenerator implements TerrainHeightProvider {
     // Hills terrain constants
     private static final float HILLS_BASE_Y = 0.3f;   // minimum hill height (above water)
     private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
-    private static final float RIVER_WIDTH  = 0.40f;  // |riverNoise| threshold for channel width
+    private static final float RIVER_WIDTH  = 0.15f;  // |riverNoise| threshold for channel width
     private static final int   LAMP_SPACING = 25;     // grid cells between streetlamp sample points
     private static final double LAMP_SCALE  = 4.0;    // uniform scale applied to each lamp
+    private static final float ALTITUDE_BONUS = 70f;
 
     // Tree spawning constants
     private static final float TREE_DENSITY = 0.01f;  // probability of a tree per cell
@@ -79,6 +80,13 @@ public class MapGenerator implements TerrainHeightProvider {
     private final FastNoiseLite riverWarp;
     /** River channels: low-frequency FBm; rivers where |val| < RIVER_WIDTH */
     private final FastNoiseLite riverNoise;
+
+    /** Biome temperature noise */
+    private final FastNoiseLite tempNoise;
+    /** Biome moisture noise */
+    private final FastNoiseLite moistNoise;
+    /** Biome altitude noise */
+    private final FastNoiseLite altNoise;
 
     // ------------------------------------------------------------------
     // Configuration
@@ -115,7 +123,7 @@ public class MapGenerator implements TerrainHeightProvider {
         // --- hills height: fewer octaves, higher gain → smoother, rounder hills ---
         hillsNoise = new FastNoiseLite();
         hillsNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        hillsNoise.SetFrequency(0.018f);
+        hillsNoise.SetFrequency(0.015f);
         hillsNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         hillsNoise.SetFractalOctaves(3);
         hillsNoise.SetFractalLacunarity(2.0f);
@@ -126,18 +134,39 @@ public class MapGenerator implements TerrainHeightProvider {
         riverWarp.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
         riverWarp.SetDomainWarpType(FastNoiseLite.DomainWarpType.OpenSimplex2Reduced);
         riverWarp.SetDomainWarpAmp(22f);
-        riverWarp.SetFrequency(0.005f);
+        riverWarp.SetFrequency(0.001f);
         riverWarp.SetFractalType(FastNoiseLite.FractalType.DomainWarpIndependent);
         riverWarp.SetFractalOctaves(2);
 
         // --- river channels: very low frequency so rivers are long and winding ---
         riverNoise = new FastNoiseLite();
         riverNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        riverNoise.SetFrequency(0.009f);
+        riverNoise.SetFrequency(0.003f);
         riverNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         riverNoise.SetFractalOctaves(2);
         riverNoise.SetFractalLacunarity(2.0f);
         riverNoise.SetFractalGain(0.5f);
+
+        // --- temperature noise: low frequency for large-scale climate zones ---
+        tempNoise = new FastNoiseLite();
+        tempNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
+        tempNoise.SetFrequency(0.0005f);
+        tempNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        tempNoise.SetFractalOctaves(3);
+
+        // --- moisture noise: similar low frequency for large-scale climate zones ---
+        moistNoise = new FastNoiseLite();
+        moistNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
+        moistNoise.SetFrequency(0.001f);
+        moistNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        moistNoise.SetFractalOctaves(3);
+
+        // --- altitude noise: medium frequency for mountainous areas ---
+        altNoise = new FastNoiseLite();
+        altNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
+        altNoise.SetFrequency(0.002f);
+        altNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        altNoise.SetFractalOctaves(4);
     }
 
     // ------------------------------------------------------------------
@@ -184,99 +213,6 @@ public class MapGenerator implements TerrainHeightProvider {
     }
 
     // ------------------------------------------------------------------
-    // Biome height generation (original logic)
-    // ------------------------------------------------------------------
-
-    private void buildBiomeHeights(int rows, int cols, float[] heights, float[] colors) {
-        report(0.1f, "Calculating biome heights...");
-        float halfCols = cols / 2.0f;
-        float halfRows = rows / 2.0f;
-
-        IntStream.range(0, rows).parallel().forEach(r -> {
-            float nz = (r - halfRows) * cellSize;
-            FastNoiseLite.Vector2 coord = new FastNoiseLite.Vector2(0f, 0f);
-            int rowIdx = r * cols;
-
-            for (int c = 0; c < cols; c++) {
-                float nx = (c - halfCols) * cellSize;
-                int idx = rowIdx + c;
-
-                coord.x = nx; coord.y = nz;
-                warpNoise.DomainWarp(coord);
-                float noiseVal = noise.GetNoise(coord.x, coord.y);
-
-                float height, blendT;
-                if (noiseVal < threshold) {
-                    float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
-                    height = -(float) Math.pow(depth, 1.5) * 4.0f;
-                    blendT = 0.0f;
-                } else {
-                    blendT = (noiseVal - threshold) / (1.0f - threshold);
-                    height = (float) Math.pow(blendT, 2.5) * heightScale;
-                }
-
-                heights[idx] = height;
-                int cIdx = idx * 4;
-                colors[cIdx    ] = 1.0f;
-                colors[cIdx + 1] = 1.0f;
-                colors[cIdx + 2] = 1.0f;
-                colors[cIdx + 3] = blendT;
-            }
-        });
-    }
-
-    // ------------------------------------------------------------------
-    // Hills height generation
-    // ------------------------------------------------------------------
-
-    private void buildHillsHeights(int rows, int cols, float[] heights, float[] colors, float[] riverVals) {
-        report(0.1f, "Calculating hill heights...");
-        float halfCols = cols / 2.0f;
-        float halfRows = rows / 2.0f;
-
-        IntStream.range(0, rows).parallel().forEach(r -> {
-            float nz = (r - halfRows) * cellSize;
-            FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(0f, 0f);
-            int rowIdx = r * cols;
-
-            for (int c = 0; c < cols; c++) {
-                float nx = (c - halfCols) * cellSize;
-                int idx = rowIdx + c;
-
-                // Base hills: normalize FBm output to [0, 1] and lift above water
-                float noiseVal    = hillsNoise.GetNoise(nx, nz);       // ~[-1, 1]
-                float normalizedH = (noiseVal + 1.0f) * 0.5f;          // [0, 1]
-                float hillHeight  = HILLS_BASE_Y + normalizedH * heightScale;
-
-                // River channels: domain-warp then check |noise| < threshold
-                rc.x = nx; rc.y = nz;
-                riverWarp.DomainWarp(rc);
-                float riverVal = Math.abs(riverNoise.GetNoise(rc.x, rc.y));
-                riverVals[idx] = riverVal; // cache for lamp/tree spawning
-
-                float height, blendT;
-                if (riverVal < RIVER_WIDTH) {
-                    // Smoothstep blend: terrain dips from hillHeight down to RIVER_BOTTOM
-                    float t     = riverVal / RIVER_WIDTH;
-                    float blend = t * t * (3.0f - 2.0f * t);               // smoothstep [0, 1]
-                    height  = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
-                    blendT  = blend * normalizedH * 0.15f;
-                } else {
-                    height = hillHeight;
-                    blendT = Math.min(normalizedH * 0.20f, 0.65f);
-                }
-
-                heights[idx] = height;
-                int cIdx = idx * 4;
-                colors[cIdx    ] = 1.0f;
-                colors[cIdx + 1] = 1.0f;
-                colors[cIdx + 2] = 1.0f;
-                colors[cIdx + 3] = blendT;
-            }
-        });
-    }
-
-    // ------------------------------------------------------------------
     // Per-chunk data generation (used by ChunkManager)
     // ------------------------------------------------------------------
 
@@ -316,6 +252,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 float noiseVal    = hillsNoise.GetNoise(nx, nz);
                 float normalizedH = (noiseVal + 1.0f) * 0.5f;
                 float hillHeight  = HILLS_BASE_Y + normalizedH * heightScale;
+                float altVal      = altNoise.GetNoise(nx, nz);
 
                 rc.x = nx; rc.y = nz;
                 riverWarp.DomainWarp(rc);
@@ -323,21 +260,62 @@ public class MapGenerator implements TerrainHeightProvider {
                 if (riverVals != null) riverVals[idx] = riverVal;
 
                 float height, blendT;
+                float rWeight = 0, gWeight = 0, bWeight = 0; // Tundra, Desert, Forest
+                String biome = getBiomeAt(nx, nz);
+                if (biome.equals("Tundra")) rWeight = 1.0f;
+                else if (biome.equals("Desert")) gWeight = 1.0f;
+                else if (biome.equals("Forest")) bWeight = 1.0f;
+                else if (biome.equals("Stony Peaks")) {
+                    rWeight = 1.0f; // cold/mountainous → use tundra/snow texture
+                } else if (biome.equals("Meadow")) {
+                    bWeight = 1.0f; // high altitude grass → use forest/grass texture
+                }
+
                 if (riverVal < RIVER_WIDTH) {
                     float t     = riverVal / RIVER_WIDTH;
                     float blend = t * t * (3.0f - 2.0f * t);
-                    height  = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
-                    blendT  = blend * normalizedH * 0.15f;
+
+                    // Fade biome weights in the riverbed so it uses the default sand texture
+                    rWeight *= blend;
+                    gWeight *= blend;
+                    bWeight *= blend;
+
+                    float baseHeight = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
+                    float altExtra = 0;
+                    if (altVal > 0.3f) {
+                        altExtra = (altVal - 0.3f) * ALTITUDE_BONUS;
+                        // blend the alt extra too, so it doesn't just cut off at the river bank
+                        baseHeight += altExtra * blend;
+                    }
+                    height = baseHeight;
+                    
+                    float baseT = blend * normalizedH * 0.15f;
+                    if (altVal > 0.3f) {
+                        // Stony Peaks: start with baseT but add altitude boost, clamped at 1.0
+                        blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
+                    } else {
+                        // Regular Tundra: boost baseT slightly to ensure it's snowy enough
+                        blendT = Math.min(baseT * 1.2f, 1.0f);
+                    }
                 } else {
                     height = hillHeight;
-                    blendT = Math.min(normalizedH * 0.20f, 0.65f);
+                    float baseT = Math.min(normalizedH * 0.20f, 0.65f);
+
+                    if (altVal > 0.3f) {
+                        height += (altVal - 0.3f) * ALTITUDE_BONUS;
+                        // Stony Peaks: start with baseT but add altitude boost, clamped at 1.0
+                        blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
+                    } else {
+                        // Regular Tundra: boost baseT slightly to ensure it's snowy enough
+                        blendT = Math.min(baseT * 1.2f, 1.0f);
+                    }
                 }
 
                 heights[idx] = height;
                 int cIdx = idx * 4;
-                colors[cIdx    ] = 1.0f;
-                colors[cIdx + 1] = 1.0f;
-                colors[cIdx + 2] = 1.0f;
+                colors[cIdx    ] = rWeight;
+                colors[cIdx + 1] = gWeight;
+                colors[cIdx + 2] = bWeight;
                 colors[cIdx + 3] = blendT;
             }
         });
@@ -357,131 +335,54 @@ public class MapGenerator implements TerrainHeightProvider {
                 coord.x = nx; coord.y = nz;
                 warpNoise.DomainWarp(coord);
                 float noiseVal = noise.GetNoise(coord.x, coord.y);
+                float altVal   = altNoise.GetNoise(nx, nz);
 
                 float height, blendT;
+                float rWeight = 0, gWeight = 0, bWeight = 0; // Tundra, Desert, Forest
+                String biome = getBiomeAt(nx, nz);
+                if (biome.equals("Tundra")) rWeight = 1.0f;
+                else if (biome.equals("Desert")) gWeight = 1.0f;
+                else if (biome.equals("Forest")) bWeight = 1.0f;
+                else if (biome.equals("Stony Peaks")) {
+                    rWeight = 1.0f; // cold/mountainous → use tundra/snow texture
+                } else if (biome.equals("Meadow")) {
+                    bWeight = 1.0f; // high altitude grass → use forest/grass texture
+                }
+
                 if (noiseVal < threshold) {
                     float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
                     height = -(float) Math.pow(depth, 1.5) * 4.0f;
                     blendT = 0.0f;
+                    // Reset biome weights underwater to use the default sand texture
+                    rWeight = 0.0f;
+                    gWeight = 0.0f;
+                    bWeight = 0.0f;
                 } else {
-                    blendT = (noiseVal - threshold) / (1.0f - threshold);
-                    height = (float) Math.pow(blendT, 2.5) * heightScale;
+                    float baseT = (noiseVal - threshold) / (1.0f - threshold);
+                    height = (float) Math.pow(baseT, 2.5) * heightScale;
+
+                    if (altVal > 0.3f) {
+                        float altExtra = (altVal - 0.3f) * 80.0f;
+                        height += altExtra;
+                        // Stony Peaks: start with baseT but add altitude boost, clamped at 1.0
+                        blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
+                    } else {
+                        // Regular Tundra: boost baseT slightly to ensure it's snowy enough
+                        blendT = Math.min(baseT * 1.2f, 1.0f);
+                    }
                 }
 
                 heights[idx] = height;
                 int cIdx = idx * 4;
-                colors[cIdx    ] = 1.0f;
-                colors[cIdx + 1] = 1.0f;
-                colors[cIdx + 2] = 1.0f;
+                colors[cIdx    ] = rWeight;
+                colors[cIdx + 1] = gWeight;
+                colors[cIdx + 2] = bWeight;
                 colors[cIdx + 3] = blendT;
             }
         });
     }
 
     public boolean isHillsTerrain() { return "hills".equals(terrainType); }
-
-    // ------------------------------------------------------------------
-    // Streetlamp spawning (hills only)
-    // ------------------------------------------------------------------
-
-    private void spawnStreetlamps(World world, int rows, int cols, float[] heights, float[] riverVals) {
-        Random rng  = new Random(currentSeed + 42L);
-        int    half = LAMP_SPACING / 2;
-
-        for (int r = LAMP_SPACING; r < rows - LAMP_SPACING; r += LAMP_SPACING) {
-            for (int c = LAMP_SPACING; c < cols - LAMP_SPACING; c += LAMP_SPACING) {
-                // Jitter the sample point within the spacing cell so lamps aren't on a grid
-                int jr = r + rng.nextInt(LAMP_SPACING) - half;
-                int jc = c + rng.nextInt(LAMP_SPACING) - half;
-                jr = Math.max(0, Math.min(rows - 1, jr));
-                jc = Math.max(0, Math.min(cols - 1, jc));
-
-                float height = heights[jr * cols + jc];
-
-                // Skip cells that are too close to a river channel (use cached value)
-                float nx = (jc - cols / 2f) * cellSize;
-                float nz = (jr - rows / 2f) * cellSize;
-                if (riverVals[jr * cols + jc] < RIVER_WIDTH * 1.5f) continue;
-
-                MeshObject lamp = new MeshObject(LAMP_PATH, true);
-                lamp.setCollidable(false);
-                lamp.setScale(LAMP_SCALE);
-                float lampY = height + 3.5f;
-                lamp.setPosition(nx, lampY, nz + zOffset);
-                world.addObject(lamp);
-
-                // Point light near the lamp head (offset up from base by ~10 world units)
-                float lightY = lampY + 10.0f;
-                float lightZ = (float)(nz + zOffset);
-                PointLight pl = new PointLight(
-                    new Color3f(1.0f, 0.80f, 0.35f),                    // warm amber / sodium lamp
-                    new Point3f(nx, lightY, lightZ),
-                    new Point3f(0.002f, 0.01f, 0.007f)                     // constant, linear, quadratic — fast falloff
-                );
-                pl.setInfluencingBounds(new BoundingSphere(new Point3d(nx, lightY, lightZ), 20.0));
-                world.addPointLight(pl);
-            }
-        }
-    }
-
-    private void spawnTrees(World world, int rows, int cols, float[] heights, float[] riverVals) {
-        Random rng = new Random(currentSeed + 99L);
-        int treesPlaced = 0;
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (rng.nextFloat() > TREE_DENSITY) continue;
-
-                float height = heights[r * cols + c];
-
-                // Avoid placing trees underwater
-                if (height < 0.2f) continue;
-
-                float nx = (c - cols / 2f) * cellSize;
-                float nz = (r - rows / 2f) * cellSize;
-
-                // For hills terrain, avoid river channels (use cached value)
-                if (riverVals != null && riverVals[r * cols + c] < RIVER_WIDTH * 1.0f) continue;
-
-                MeshObject tree = new MeshObject(TREE_PATH, true);
-                tree.setCollidable(true);
-                double scale = TREE_SCALE_MIN + (TREE_SCALE_MAX - TREE_SCALE_MIN) * rng.nextDouble();
-                tree.setScale(scale);
-                tree.setPosition(nx, height, nz + zOffset);
-                // AABB in model space: trunk radius ±0.25, base at pivot y (-0.903), top at y=2.5
-                float radius = 0.08f;
-                Vector3d pivot = tree.getPivot();
-                tree.setLocalAABB(new AABB(
-                        (float)pivot.x - radius, (float)pivot.y, (float)pivot.z - radius,
-                        (float)pivot.x + radius, 0.0f,           (float)pivot.z + radius
-                ));
-                // Random rotation (yaw)
-                tree.setRotationEuler(0, rng.nextFloat() * Math.PI*2, 0);
-                
-                world.addObject(tree);
-
-                // Leaf particles drifting down from the canopy
-                double canopyY = height + scale * 1.8;
-                float canopyRadius = (float)(scale * 0.55f);
-                world.addEmitter(new ParticleEmitter(nx, canopyY-0.3, nz + zOffset)
-                        .setSpawnMode(ParticleEmitter.SpawnMode.BRICK)
-                        .setBrickSize(canopyRadius * 2, canopyRadius * 0.4f, canopyRadius * 2)
-                        .setEmissionRate(1.0)
-                        .setPitch(-Math.PI / 2)
-                        .setSpread(0.6)
-                        .setSpeed(0.5)
-                        .setStartColor(new Color4f(1f, 1f, 1f, 0.9f))
-                        .setEndColor(new Color4f(1f, 1f, 1f, 0f))
-                        .setStartSize((float)(scale * 0.12f))
-                        .setEndSize((float)(scale * 0.06f))
-                        .setLifetime(10.0f)
-                        .setGravityScale(0.04f)
-                        .setRotationSpeed((float)(Math.random()*120f-60f))
-                        .setAtlasPath("resources/particles/leaf.png"));
-
-                treesPlaced++;
-            }
-        }
-    }
 
     // ------------------------------------------------------------------
     // Shader appearance builder
@@ -570,6 +471,32 @@ public class MapGenerator implements TerrainHeightProvider {
         return app;
     }
 
+    public String getBiomeAt(float wx, float wz) {
+        float nx = wx;
+        float nz = wz - zOffset;
+        float temp = tempNoise.GetNoise(nx, nz);
+        float moist = moistNoise.GetNoise(nx, nz);
+        float alt = altNoise.GetNoise(nx, nz);
+
+        if (alt > 0.3f) {
+            if (temp < 0.1f) {
+                return "Stony Peaks";
+            } else {
+                return "Meadow";
+            }
+        }
+
+        if (temp < -0.3f) {
+            return "Tundra";
+        } else if (moist < -0.2f) {
+            return "Desert";
+        } else if (moist > 0.2f) {
+            return "Forest";
+        } else {
+            return "Steppe";
+        }
+    }
+
     // ------------------------------------------------------------------
     // TerrainHeightProvider
     // ------------------------------------------------------------------
@@ -585,12 +512,19 @@ public class MapGenerator implements TerrainHeightProvider {
         FastNoiseLite.Vector2 coord = new FastNoiseLite.Vector2(nx, nz);
         warpNoise.DomainWarp(coord);
         float noiseVal = noise.GetNoise(coord.x, coord.y);
+        float altVal   = altNoise.GetNoise(nx, nz);
+
         if (noiseVal < threshold) {
             float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
             return -(float) Math.pow(depth, 1.5) * 4.0f;
         } else {
             float t = (noiseVal - threshold) / (1.0f - threshold);
-            return (float) Math.pow(t, 2.5) * heightScale;
+            float h = (float) Math.pow(t, 2.5) * heightScale;
+
+            if (altVal > 0.3f) {
+                h += (altVal - 0.3f) * ALTITUDE_BONUS;
+            }
+            return h;
         }
     }
 
@@ -598,6 +532,7 @@ public class MapGenerator implements TerrainHeightProvider {
         float noiseVal    = hillsNoise.GetNoise(nx, nz);
         float normalizedH = (noiseVal + 1.0f) * 0.5f;
         float hillHeight  = HILLS_BASE_Y + normalizedH * heightScale;
+        float altVal      = altNoise.GetNoise(nx, nz);
 
         FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(nx, nz);
         riverWarp.DomainWarp(rc);
@@ -606,9 +541,18 @@ public class MapGenerator implements TerrainHeightProvider {
         if (riverVal < RIVER_WIDTH) {
             float t     = riverVal / RIVER_WIDTH;
             float blend = t * t * (3.0f - 2.0f * t);
-            return RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
+            float h = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
+            if (altVal > 0.3f) {
+                h += (altVal - 0.3f) * ALTITUDE_BONUS * blend;
+            }
+            return h;
         }
-        return hillHeight;
+
+        float h = hillHeight;
+        if (altVal > 0.3f) {
+            h += (altVal - 0.3f) * ALTITUDE_BONUS;
+        }
+        return h;
     }
 
     // ------------------------------------------------------------------
@@ -622,6 +566,9 @@ public class MapGenerator implements TerrainHeightProvider {
         hillsNoise.SetSeed(seed);
         riverNoise.SetSeed(seed + 1337);
         riverWarp.SetSeed(seed + 2674);
+        tempNoise.SetSeed(seed + 4011);
+        moistNoise.SetSeed(seed + 5348);
+        altNoise.SetSeed(seed + 6685);
     }
 
     public void setTerrainType(String type)    { this.terrainType = type;      }

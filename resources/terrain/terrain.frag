@@ -6,23 +6,38 @@ uniform sampler2D snowTex;
 varying vec2  vTexCoord;
 varying float vBlendT;
 varying vec3  vLighting;
+varying vec3  vBiomeWeights; // R=Tundra, G=Desert, B=Forest, (Steppe if all 0)
 
 void main() {
     float t = clamp(vBlendT, 0.0, 1.0);
 
-    vec4 texColor;
+    // Default height-based textures (used for Steppe and mixed with others)
+    vec4 sand  = texture2D(sandTex,  vTexCoord);
+    vec4 grass = texture2D(grassTex, vTexCoord);
+    vec4 rock  = texture2D(rockTex,  vTexCoord);
+    vec4 snow  = texture2D(snowTex,  vTexCoord);
+
+    vec4 steppeColor;
     if (t < 0.12) {
-        texColor = mix(texture2D(sandTex,  vTexCoord),
-                       texture2D(grassTex, vTexCoord), t / 0.12);
+        steppeColor = mix(sand, grass, t / 0.12);
     } else if (t < 0.50) {
-        texColor = mix(texture2D(grassTex, vTexCoord),
-                       texture2D(rockTex,  vTexCoord), (t - 0.12) / 0.38);
+        steppeColor = mix(grass, rock, (t - 0.12) / 0.38);
     } else if (t < 0.78) {
-        texColor = mix(texture2D(rockTex,  vTexCoord),
-                       texture2D(snowTex,  vTexCoord), (t - 0.50) / 0.28);
+        steppeColor = mix(rock, snow, (t - 0.50) / 0.28);
     } else {
-        texColor = texture2D(snowTex, vTexCoord);
+        steppeColor = snow;
     }
+
+    // Biome-specific variations
+    vec4 tundraColor = mix(snow, rock, clamp(t * 0.4, 0.0, 1.0)); // Cold: mostly snow, slight rock at higher elevations
+    vec4 desertColor = mix(sand, rock, clamp(t * 0.5, 0.0, 1.0)); // Hot/Dry: mostly sand
+    vec4 forestColor = mix(grass, rock, clamp(t, 0.0, 1.0));      // Wet: mostly grass
+
+    // Blend biomes
+    vec4 texColor = steppeColor;
+    texColor = mix(texColor, tundraColor, vBiomeWeights.r);
+    texColor = mix(texColor, desertColor, vBiomeWeights.g);
+    texColor = mix(texColor, forestColor, vBiomeWeights.b);
 
     vec3 litColor = texColor.rgb * vLighting;
 

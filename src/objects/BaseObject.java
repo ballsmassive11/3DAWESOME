@@ -35,7 +35,7 @@ public abstract class BaseObject {
 
     // True once getBranchGroup() has populated the scene sub-tree; subsequent calls
     // return the already-built branchGroup without rebuilding geometry.
-    private boolean geometryBuilt = false;
+    protected boolean geometryBuilt = false;
 
     // The built Shape3D, stored so applyAppearance() can update it after construction.
     protected Shape3D builtShape = null;

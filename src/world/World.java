@@ -65,6 +65,9 @@ public class World {
         this.backgroundColor = new Color3f(0.8f, 0.8f, 0.9f);
         this.player  = new Player();
         this.lighting = new Lighting();
+
+        // Give player a point light
+        addPointLight(player.getPointLight());
     }
 
     // ------------------------------------------------------------------
@@ -128,6 +131,10 @@ public class World {
         lightNodes.clear();
         emitters.clear();
         player.setTerrainProvider(null);
+
+        // Re-add player light after clearing
+        addPointLight(player.getPointLight());
+
         for (Entity e : entities) e.setTerrainProvider(null);
         worldBorder  = null;
         chunkManager = null;
