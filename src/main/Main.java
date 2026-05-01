@@ -10,6 +10,7 @@ import gui.text.GuiText;
 import gui.vec.Vector2;
 import objects.*;
 import particles.ParticleEmitter;
+import scripting.ScriptRunner;
 import world.*;
 import terrain.MapGenerator;
 import renderer.*;
@@ -20,6 +21,7 @@ import javax.vecmath.Color3f;
 import javax.vecmath.Color4f;
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 
 
 public class Main {
@@ -123,6 +125,19 @@ public class Main {
         // Set the player's visible body model
         gui.setLoadingProgress(0.05f, "Loading player model...");
         world.setPlayerModel("resources/models/Guy/guy.obj");
+
+        // Run any mods/*.py — scripts may override the default model and movespeed
+        File modsDir = new File("mods");
+        if (modsDir.isDirectory()) {
+            File[] pys = modsDir.listFiles((d, n) -> n.endsWith(".py"));
+            if (pys != null && pys.length > 0) {
+                ScriptRunner runner = new ScriptRunner(world);
+                for (File f : pys) {
+                    String err = runner.runFile(f.getPath());
+                    if (err != null) System.err.println("[mod " + f.getName() + "] " + err);
+                }
+            }
+        }
 
         gui.setLoadingProgress(0.1f, "Initializing map generator...");
         MapGenerator mapGen = new MapGenerator();
