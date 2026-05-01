@@ -28,6 +28,8 @@ public class Camera {
 
     private double moveSpeed = 5.0; // units per second
     private double turnSpeed = 2.0; // radians per second
+    private double mouseSensitivity = 0.002;
+    private final Vector3d offset = new Vector3d(0, 0.3, 0);
 
     private final Set<Integer> activeKeys = new HashSet<>();
     private boolean jumpRequested = false;
@@ -63,6 +65,20 @@ public class Camera {
             if (activeKeys.contains(KeyEvent.VK_DOWN))  pitch -= turnSpeed * deltaTime;
         }
 
+        clampPitch();
+    }
+
+    /**
+     * Rotates the camera by the given pixel deltas.
+     */
+    public void mouseRotate(double dx, double dy) {
+        if (rotationDisabled) return;
+        yaw   -= dx * mouseSensitivity;
+        pitch -= dy * mouseSensitivity;
+        clampPitch();
+    }
+
+    private void clampPitch() {
         double limit = Math.PI / 2.1;
         if (pitch >  limit) pitch =  limit;
         if (pitch < -limit) pitch = -limit;
@@ -124,6 +140,22 @@ public class Camera {
     /** Returns true while the Shift key is held. */
     public boolean isShiftHeld() {
         return activeKeys.contains(KeyEvent.VK_SHIFT);
+    }
+
+    public Vector3d getOffset() {
+        return offset;
+    }
+
+    public void setOffset(double x, double y, double z) {
+        this.offset.set(x, y, z);
+    }
+
+    public double getMouseSensitivity() {
+        return mouseSensitivity;
+    }
+
+    public void setMouseSensitivity(double mouseSensitivity) {
+        this.mouseSensitivity = mouseSensitivity;
     }
 
     /**

@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 
 /**
  * Responsible for the Java3D rendering pipeline: camera, scene setup, fog, and skybox.
@@ -62,12 +63,29 @@ public class Game3DRenderer {
     private boolean menuActive = false;
     private boolean hasDoneInitialLightUpdate = false;
 
+    private boolean rightMouseDown = false;
+    private Point lastMousePos = new Point();
+    private Robot robot;
+    private Cursor transparentCursor;
+
+    private int lastShiftLockX = -1;
+    private int lastShiftLockY = -1;
+
     public Game3DRenderer(World world) {
         this.world = world;
         initializeRenderer();
     }
 
     private void initializeRenderer() {
+        try {
+            robot = new Robot();
+        } catch (AWTException e) {
+            e.printStackTrace();
+        }
+
+        BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        transparentCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
+
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
         canvas = new GuiCanvas(config, world);
         canvas.setSize(800, 600);
@@ -92,6 +110,13 @@ public class Game3DRenderer {
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
                 if (e.getKeyCode() == KeyEvent.VK_F3) { canvas.toggleDebugPanel(); return; }
                 int kc = e.getKeyCode();
+                if (kc == KeyEvent.VK_SHIFT) {
+                    if (!world.getPlayer().getPhysics().isFlying()) {
+                        boolean now = !world.getPlayer().isShiftLockEnabled();
+                        world.getPlayer().setShiftLockEnabled(now);
+                        updateShiftLockCursor();
+                    }
+                }
                 if (kc == KeyEvent.VK_I || kc == KeyEvent.VK_O) {
                     zoomKeys.add(kc);
                     return;
@@ -109,6 +134,71 @@ public class Game3DRenderer {
             public void keyReleased(KeyEvent e) {
                 zoomKeys.remove(e.getKeyCode());
                 if (!canvas.getCommandHud().isActive()) world.getCamera().keyReleased(e.getKeyCode());
+            }
+        });
+
+        canvas.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (e.getButton() == MouseEvent.BUTTON3) {
+                    rightMouseDown = true;
+                    lastMousePos = e.getPoint();
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (e.getButton() == MouseEvent.BUTTON3) {
+                    rightMouseDown = false;
+                }
+            }
+        });
+
+        canvas.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                handleMouseMove(e);
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                handleMouseMove(e);
+            }
+
+            private void handleMouseMove(MouseEvent e) {
+                if (canvas.getCommandHud().isActive()) return;
+
+                if (world.getPlayer().isShiftLockEnabled()) {
+                    centerMouse(e);
+                } else if (rightMouseDown) {
+                    double dx = e.getX() - lastMousePos.x;
+                    double dy = e.getY() - lastMousePos.y;
+
+                    if (dx != 0 || dy != 0) {
+                        world.getCamera().mouseRotate(dx, dy);
+                        // Lock mouse in place during right-drag
+                        Point screenPos = canvas.getLocationOnScreen();
+                        screenPos.translate(lastMousePos.x, lastMousePos.y);
+                        robot.mouseMove(screenPos.x, screenPos.y);
+                    }
+                }
+            }
+
+            private void centerMouse(MouseEvent e) {
+                if (e.getX() == lastShiftLockX && e.getY() == lastShiftLockY) return;
+
+                Point center = new Point(canvas.getWidth() / 2, canvas.getHeight() / 2);
+                double dx = e.getX() - center.x;
+                double dy = e.getY() - center.y;
+
+                if (dx != 0 || dy != 0) {
+                    world.getCamera().mouseRotate(dx, dy);
+                    lastShiftLockX = center.x;
+                    lastShiftLockY = center.y;
+                    Point screenCenter = canvas.getLocationOnScreen();
+                    screenCenter.translate(center.x, center.y);
+                    robot.mouseMove(screenCenter.x, screenCenter.y);
+                }
             }
         });
 
@@ -215,10 +305,23 @@ public class Game3DRenderer {
         Camera cam = world.getCamera();
         double yaw   = cam.getYaw();
         double pitch = cam.getPitch();
-        Vector3d lookAt = cam.getPosition();
+        Vector3d basePos = cam.getPosition();
+        Vector3d offset  = cam.getOffset();
 
         double sinY = Math.sin(yaw), cosY = Math.cos(yaw);
         double sinP = Math.sin(pitch), cosP = Math.cos(pitch);
+
+        // Calculate lookAt position by applying offset in view-relative space
+        // offset.x: right, offset.y: up, offset.z: forward
+        Vector3d lookAt = new Vector3d(basePos);
+        // right vector: (cosY, 0, -sinY)
+        lookAt.x += offset.x * cosY;
+        lookAt.z -= offset.x * sinY;
+        // up vector: (0, 1, 0)
+        lookAt.y += offset.y;
+        // forward vector: (-sinY, 0, -cosY)
+        lookAt.x -= offset.z * sinY;
+        lookAt.z -= offset.z * cosY;
 
         double idealR = camOrbitRadius;
         double idealX = lookAt.x + sinY * cosP * idealR;
@@ -327,10 +430,24 @@ public class Game3DRenderer {
 
     public void setMenuActive(boolean active) {
         this.menuActive = active;
+        if (active) {
+            canvas.setCursor(Cursor.getDefaultCursor());
+        } else if (world.getPlayer().isShiftLockEnabled()) {
+            canvas.setCursor(transparentCursor);
+        }
     }
 
     public boolean isMenuActive() {
         return menuActive;
+    }
+
+    public void updateShiftLockCursor() {
+        if (menuActive) return;
+        if (world.getPlayer().isShiftLockEnabled()) {
+            canvas.setCursor(transparentCursor);
+        } else {
+            canvas.setCursor(Cursor.getDefaultCursor());
+        }
     }
 
     public void setFogOn(boolean on) {
@@ -405,7 +522,10 @@ public class Game3DRenderer {
     public void updateHud(double fps, double x, double y, double z,
                           double yaw, double pitch, int objects, int polygons,
                           int seed, boolean flying) {
-        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying);
+        int entities = world.getEntityCount();
+        TerrainHeightProvider provider = world.getTerrainProvider();
+        String biome = (provider != null) ? provider.getBiomeAt((float)x, (float)z) : "Unknown";
+        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, entities, biome, flying);
     }
 
     public DayNightCycle getDayNightCycle() { return dayNightCycle; }

@@ -2,6 +2,7 @@ package entity;
 
 import objects.MeshObject;
 import physics.AABB;
+import terrain.MapGenerator;
 
 import javax.vecmath.Vector3d;
 import java.util.List;
@@ -97,7 +98,7 @@ public class Guy extends Entity {
         boolean waterAhead = false;
         if (physics.getTerrainProvider() != null) {
             float h = physics.getTerrainProvider().getHeightAt((float) nextX, (float) nextZ);
-            if (h < 0.1f) { // Water level is 0.0, so stay slightly above it
+            if (h < 0.1f || (physics.getTerrainProvider() instanceof MapGenerator && ((MapGenerator)physics.getTerrainProvider()).getRiverValAt((float) nextX, (float) nextZ) < 0.15f)) { // Water level is 0.0, so stay slightly above it
                 waterAhead = true;
             }
         }
@@ -110,13 +111,16 @@ public class Guy extends Entity {
             // If we are currently IN water, try to move toward land
             if (physics.getTerrainProvider() != null) {
                 float currentH = physics.getTerrainProvider().getHeightAt((float) position.x, (float) position.z);
-                if (currentH < 0.1f) {
+                if (currentH < 0.1f || physics.getTerrainProvider() instanceof MapGenerator && ((MapGenerator)physics.getTerrainProvider()).getRiverValAt((float) position.x, (float) position.z) < 0.15f) {
                     // Sample a few directions to find land
                     for (int i = 0; i < 8; i++) {
                         double testAngle = i * (Math.PI * 2 / 8);
                         double tx = position.x + Math.sin(testAngle) * WALK_SPEED * deltaTime * 5;
                         double tz = position.z + Math.cos(testAngle) * WALK_SPEED * deltaTime * 5;
-                        if (physics.getTerrainProvider().getHeightAt((float) tx, (float) tz) > currentH) {
+                        
+                        float testH = physics.getTerrainProvider().getHeightAt((float) tx, (float) tz);
+                        
+                        if (testH > currentH && !(physics.getTerrainProvider() instanceof MapGenerator && ((MapGenerator)physics.getTerrainProvider()).getRiverValAt((float) tx, (float) tz) < 0.15f)) {
                             wanderAngle = testAngle;
                             // Move a bit this frame to start escaping
                             position.x += Math.sin(wanderAngle) * WALK_SPEED * deltaTime;

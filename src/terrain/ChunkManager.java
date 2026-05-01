@@ -219,7 +219,8 @@ public class ChunkManager {
             mesh.getBranchGroup(); // triggers geometry construction and caches it
 
             List<WaterTile>   water = buildWaterTiles(wx0, wz0, n, heights);
-            List<MeshObject>  trees = buildTrees(coord, wx0, wz0, n, heights, riverVals);
+            List<MeshObject>  trees = buildTrees(coord, wx0, wz0, n, heights, riverVals, generator);
+            List<MeshObject>  bushes = buildBushes(coord, wx0, wz0, n, heights, riverVals, generator);
             List<ParticleEmitter> emitters = buildLeafEmitters(trees);
 
             // Guys persist across load/unload cycles; only create them on first visit.
@@ -237,6 +238,7 @@ public class ChunkManager {
             chunkSceneBG.setCapability(Node.ALLOW_BOUNDS_WRITE);
             chunkSceneBG.addChild(mesh.getBranchGroup());
             for (MeshObject t : trees) chunkSceneBG.addChild(t.getBranchGroup());
+            for (MeshObject b : bushes) chunkSceneBG.addChild(b.getBranchGroup());
 
             // Pre-set explicit bounds so Java3D does not need to traverse every vertex
             // in the subtree when this group is addChild'd to the live scene graph.
@@ -319,9 +321,17 @@ public class ChunkManager {
     private static final double TREE_SCALE_MIN = 4.5;
     private static final double TREE_SCALE_MAX = 7.5;
 
+    private static final String BUSH_PATH    = "resources/models/Bush/bush.obj";
+    private static final float  BUSH_DENSITY_FOREST = 0.06f;
+    private static final float  BUSH_DENSITY_MEADOW = 0.018f;
+    private static final float  BUSH_DENSITY_STEPPE = 0.008f;
+    private static final double BUSH_SCALE_MIN = 1.5;
+    private static final double BUSH_SCALE_MAX = 2.2;
+
     private static List<MeshObject> buildTrees(ChunkCoord coord,
                                                 float wx0, float wz0, int n,
-                                                float[] heights, float[] riverVals) {
+                                                float[] heights, float[] riverVals,
+                                                MapGenerator generator) {
         // Deterministic seed per chunk so re-generation produces the same trees.
         long seed = ((long) coord.x * 73856093L) ^ ((long) coord.z * 19349663L) ^ 77L;
         Random rng = new Random(seed);
@@ -329,13 +339,27 @@ public class ChunkManager {
         List<MeshObject> trees = new ArrayList<>();
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
-                if (rng.nextFloat() > TREE_DENSITY) continue;
+                float wx = wx0 + c * CELL_SIZE;
+                float wz = wz0 + r * CELL_SIZE;
+
+                String biome = generator.getBiomeAt(wx, wz);
+                float density = 0;
+                if (biome.equals("Forest")) {
+                    density = 0.045f;
+                } else if (biome.equals("Steppe")) {
+                    density = 0.005f;
+                } else if (biome.equals("Mountain")) {
+                    density = 0.008f;
+                } else if (biome.equals("Tundra")) {
+                    density = 0.002f;
+                }
+
+                if (density == 0 || rng.nextFloat() > density) continue;
+
                 float h = heights[r * n + c];
                 if (h < 0.1f) continue;
                 if (riverVals[r * n + c] < RIVER_WIDTH) continue;
 
-                float wx = wx0 + c * CELL_SIZE;
-                float wz = wz0 + r * CELL_SIZE;
                 double scale = TREE_SCALE_MIN + (TREE_SCALE_MAX - TREE_SCALE_MIN) * rng.nextDouble();
 
                 MeshObject tree = new MeshObject(TREE_PATH, true);
@@ -353,6 +377,48 @@ public class ChunkManager {
             }
         }
         return trees;
+    }
+
+    private static List<MeshObject> buildBushes(ChunkCoord coord,
+                                                float wx0, float wz0, int n,
+                                                float[] heights, float[] riverVals,
+                                                MapGenerator generator) {
+        long seed = ((long) coord.x * 3949663L) ^ ((long) coord.z * 73856093L) ^ 123L;
+        Random rng = new Random(seed);
+
+        List<MeshObject> bushes = new ArrayList<>();
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
+                float wx = wx0 + c * CELL_SIZE;
+                float wz = wz0 + r * CELL_SIZE;
+
+                String biome = generator.getBiomeAt(wx, wz);
+                float density = 0;
+                if (biome.equals("Forest")) {
+                    density = BUSH_DENSITY_FOREST;
+                } else if (biome.equals("Steppe")) { // Meadow
+                    density = BUSH_DENSITY_MEADOW;
+                } else if (biome.equals("Tundra")) {
+                    density = BUSH_DENSITY_STEPPE;
+                }
+
+                if (density == 0 || rng.nextFloat() > density) continue;
+
+                float h = heights[r * n + c];
+                if (h < 0.1f) continue;
+                if (riverVals[r * n + c] < RIVER_WIDTH) continue;
+
+                double scale = BUSH_SCALE_MIN + (BUSH_SCALE_MAX - BUSH_SCALE_MIN) * rng.nextDouble();
+
+                MeshObject bush = new MeshObject(BUSH_PATH, true);
+                bush.setCollidable(false);
+                bush.setScale(scale);
+                bush.setPosition(wx, h, wz);
+                bush.setRotationEuler(0, rng.nextFloat() * Math.PI * 2, 0);
+                bushes.add(bush);
+            }
+        }
+        return bushes;
     }
 
     private static List<ParticleEmitter> buildLeafEmitters(List<MeshObject> trees) {
@@ -392,7 +458,7 @@ public class ChunkManager {
      * Builds 0–{@value #GUY_MAX_PER_CHUNK} guys for a newly-generated chunk.
      * Only called once per chunk coord; subsequent loads reuse the returned list.
      */
-    private static List<Guy> buildGuys(ChunkCoord coord,
+    private List<Guy> buildGuys(ChunkCoord coord,
                                        float wx0, float wz0, int n, float[] heights) {
         long seed = ((long) coord.x * 0xDEADBEEFL) ^ ((long) coord.z * 0xCAFEBABEL) ^ 0xF00DL;
         Random rng = new Random(seed);
@@ -405,9 +471,13 @@ public class ChunkManager {
             int r = 2 + rng.nextInt(n - 4);
             int c = 2 + rng.nextInt(n - 4);
             float h = heights[r * n + c];
-            if (h < 0.5f) continue; // skip underwater / very low spots
             double gx = wx0 + c * CELL_SIZE;
             double gz = wz0 + r * CELL_SIZE;
+
+            if (h < 0.5f) continue; // skip underwater / very low spots
+            // No trees or bushes on water (which no longer has its own biome name)
+            float riverVal = generator.getRiverValAt((float) gx, (float) gz);
+            if (riverVal < 0.15f) continue;
             guys.add(new Guy(seed ^ tries, gx, gz, h));
         }
         return guys;

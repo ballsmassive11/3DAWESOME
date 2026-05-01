@@ -67,6 +67,12 @@ public class MapGenerator implements TerrainHeightProvider {
     /** Altitude noise for mountain detection */
     private final FastNoiseLite altNoise;
 
+    /** Temperature noise for biome generation */
+    private final FastNoiseLite tempNoise;
+
+    /** Moisture noise for biome generation */
+    private final FastNoiseLite moistureNoise;
+
     // ------------------------------------------------------------------
     // Configuration
     // ------------------------------------------------------------------
@@ -81,7 +87,7 @@ public class MapGenerator implements TerrainHeightProvider {
         // --- hills height: fewer octaves, higher gain → smoother, rounder hills ---
         hillsNoise = new FastNoiseLite();
         hillsNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        hillsNoise.SetFrequency(0.015f);
+        hillsNoise.SetFrequency(0.012f);
         hillsNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         hillsNoise.SetFractalOctaves(3);
         hillsNoise.SetFractalLacunarity(2.0f);
@@ -108,9 +114,23 @@ public class MapGenerator implements TerrainHeightProvider {
         // --- altitude noise: medium frequency for mountainous areas ---
         altNoise = new FastNoiseLite();
         altNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        altNoise.SetFrequency(0.002f);
+        altNoise.SetFrequency(0.001f);
         altNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         altNoise.SetFractalOctaves(4);
+
+        // --- temperature noise: low frequency for large climate zones ---
+        tempNoise = new FastNoiseLite();
+        tempNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
+        tempNoise.SetFrequency(0.0005f);
+        tempNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        tempNoise.SetFractalOctaves(3);
+
+        // --- moisture noise: low frequency for large climate zones ---
+        moistureNoise = new FastNoiseLite();
+        moistureNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
+        moistureNoise.SetFrequency(0.0006f);
+        moistureNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        moistureNoise.SetFractalOctaves(3);
     }
 
     // ------------------------------------------------------------------
@@ -144,6 +164,28 @@ public class MapGenerator implements TerrainHeightProvider {
 
         report(0.1f, "Preloading terrain chunks around spawn...");
         javax.vecmath.Vector3d spawn = world.getPlayer().getPosition();
+        
+        // Ensure spawn is on land
+        if (!isLandAt((float) spawn.x, (float) spawn.z)) {
+            report(0.12f, "Searching for land spawn point...");
+            boolean found = false;
+            // Search in an expanding square spiral or simple grid
+            for (int radius = 1; radius < 100 && !found; radius++) {
+                for (int x = -radius; x <= radius && !found; x++) {
+                    for (int z = -radius; z <= radius && !found; z++) {
+                        if (Math.abs(x) < radius && Math.abs(z) < radius) continue; // Only check the perimeter
+                        float tx = (float) spawn.x + x * 5.0f; // check every 5 units
+                        float tz = (float) spawn.z + z * 5.0f;
+                        if (isLandAt(tx, tz)) {
+                            spawn.x = tx;
+                            spawn.z = tz;
+                            found = true;
+                        }
+                    }
+                }
+            }
+        }
+
         cm.preload(spawn, 5, reporter);
 
         report(0.8f, "Creating world border...");
@@ -179,6 +221,8 @@ public class MapGenerator implements TerrainHeightProvider {
                 float normalizedH = (noiseVal + 1.0f) * 0.5f;
                 float hillHeight  = HILLS_BASE_Y + normalizedH * heightScale;
                 float altVal      = altNoise.GetNoise(nx, nz);
+                float temp        = (tempNoise.GetNoise(nx, nz) + 1.0f) * 0.5f;
+                float moisture    = (moistureNoise.GetNoise(nx, nz) + 1.0f) * 0.5f;
 
                 rc.x = nx; rc.y = nz;
                 riverWarp.DomainWarp(rc);
@@ -211,9 +255,39 @@ public class MapGenerator implements TerrainHeightProvider {
 
                 heights[idx] = height;
                 int cIdx = idx * 4;
-                colors[cIdx    ] = 0f;
-                colors[cIdx + 1] = 0f;
-                colors[cIdx + 2] = 0f;
+
+                float rWeight = 0, gWeight = 0, bWeight = 0;
+                if (altVal > 0.7f) {
+                    // Snowy Peaks: 100% R (Tundra/Snow)
+                    rWeight = 1.0f;
+                } else if (altVal > 0.45f) {
+                    // Mountain: Steppe (0,0,0) -> shader will use rock/snow mix based on blendT
+                } else if (temp < 0.3f) {
+                    // Tundra: 100% R (Cold)
+                    rWeight = 1.0f;
+                } else if (temp > 0.7f && moisture < 0.3f) {
+                    // Desert: 100% G (Hot and Dry)
+                    gWeight = 1.0f;
+                } else if (moisture > 0.6f) {
+                    // Forest: 100% B (Wet)
+                    bWeight = 1.0f;
+                }
+                // Steppe: Default (0,0,0)
+
+                if (riverVal < RIVER_WIDTH) {
+                    // Transition to Steppe (sand) smoothly within the riverbed.
+                    // This prevents biome textures (like forest grass or tundra snow)
+                    // from being abruptly replaced by Steppe grass at the river bank.
+                    float t = riverVal / RIVER_WIDTH;
+                    float riverBlend = t * t * (3.0f - 2.0f * t);
+                    rWeight *= riverBlend;
+                    gWeight *= riverBlend;
+                    bWeight *= riverBlend;
+                }
+
+                colors[cIdx    ] = rWeight;
+                colors[cIdx + 1] = gWeight;
+                colors[cIdx + 2] = bWeight;
                 colors[cIdx + 3] = blendT;
             }
         });
@@ -309,10 +383,10 @@ public class MapGenerator implements TerrainHeightProvider {
         float normalizedH = (noiseVal + 1.0f) * 0.5f;
         float hillHeight  = HILLS_BASE_Y + normalizedH * heightScale;
         float altVal      = altNoise.GetNoise(wx, wz);
+        float temp        = (tempNoise.GetNoise(wx, wz) + 1.0f) * 0.5f;
+        float moisture    = (moistureNoise.GetNoise(wx, wz) + 1.0f) * 0.5f;
 
-        FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(wx, wz);
-        riverWarp.DomainWarp(rc);
-        float riverVal = Math.abs(riverNoise.GetNoise(rc.x, rc.y));
+        float riverVal = getRiverValAt(wx, wz);
 
         if (riverVal < RIVER_WIDTH) {
             float t     = riverVal / RIVER_WIDTH;
@@ -331,6 +405,31 @@ public class MapGenerator implements TerrainHeightProvider {
         return h;
     }
 
+    public float getRiverValAt(float wx, float wz) {
+        FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(wx, wz);
+        riverWarp.DomainWarp(rc);
+        return Math.abs(riverNoise.GetNoise(rc.x, rc.y));
+    }
+
+    public boolean isLandAt(float wx, float wz) {
+        return getRiverValAt(wx, wz) >= RIVER_WIDTH;
+    }
+
+    @Override
+    public String getBiomeAt(float wx, float wz) {
+        float altVal      = altNoise.GetNoise(wx, wz);
+        float temp        = (tempNoise.GetNoise(wx, wz) + 1.0f) * 0.5f;
+        float moisture    = (moistureNoise.GetNoise(wx, wz) + 1.0f) * 0.5f;
+
+        if (altVal > 0.7f)          return "Snowy Peaks";
+        if (altVal > 0.45f)         return "Mountain";
+        if (temp < 0.3f)            return "Tundra";
+        if (temp > 0.7f && moisture < 0.3f) return "Desert";
+        if (moisture > 0.6f)        return "Forest";
+
+        return "Steppe";
+    }
+
     // ------------------------------------------------------------------
     // Configuration setters
     // ------------------------------------------------------------------
@@ -341,6 +440,8 @@ public class MapGenerator implements TerrainHeightProvider {
         riverNoise.SetSeed(seed + 1337);
         riverWarp.SetSeed(seed + 2674);
         altNoise.SetSeed(seed + 6685);
+        tempNoise.SetSeed(seed + 9876);
+        moistureNoise.SetSeed(seed + 5432);
     }
 
     public void setGridSize(int gridSize)    { this.gridSize    = gridSize;  }

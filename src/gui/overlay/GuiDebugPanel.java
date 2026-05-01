@@ -15,13 +15,15 @@ public class GuiDebugPanel extends GuiObject {
     private int objectCount = 0;
     private int polygonCount = 0;
     private int seed = 0;
+    private int entityCount = 0;
+    private String biome = "Unknown";
     private boolean flying = false;
 
     public GuiDebugPanel() {
         this.visible = true;
     }
 
-    public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
+    public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, int entities, String biome, boolean flying) {
         this.fps = fps;
         this.camX = x;
         this.camY = y;
@@ -31,6 +33,8 @@ public class GuiDebugPanel extends GuiObject {
         this.objectCount = objects;
         this.polygonCount = polygons;
         this.seed = seed;
+        this.entityCount = entities;
+        this.biome = biome;
         this.flying = flying;
     }
 
@@ -49,8 +53,10 @@ public class GuiDebugPanel extends GuiObject {
         lineList.add(String.format("Yaw:    %.1f\u00b0", yawDeg));
         lineList.add(String.format("Pitch:  %.1f\u00b0", pitchDeg));
         lineList.add(String.format("Objs:   %d", objectCount));
+        lineList.add(String.format("Ents:   %d", entityCount));
         lineList.add(String.format("Tris:   %,d", polygonCount));
         lineList.add(String.format("Seed:   %d", seed));
+        lineList.add(String.format("Biome:  %s", biome));
         if (flying) lineList.add("** FLYING **");
         String[] lines = lineList.toArray(new String[0]);
 

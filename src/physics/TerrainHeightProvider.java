@@ -6,4 +6,5 @@ package physics;
  */
 public interface TerrainHeightProvider {
     float getHeightAt(float x, float z);
+    default String getBiomeAt(float x, float z) { return "Unknown"; }
 }

@@ -205,6 +205,10 @@ public class World {
         return entities;
     }
 
+    public int getEntityCount() {
+        return entities.size() + 1; // +1 for the player
+    }
+
     // ------------------------------------------------------------------
     // Player
     // ------------------------------------------------------------------
