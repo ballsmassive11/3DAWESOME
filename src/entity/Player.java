@@ -23,15 +23,9 @@ import java.util.List;
  */
 public class Player extends Entity {
 
-    // Spring-damper constants.  ζ = DAMPING / (2√STIFFNESS) ≈ 1.004 → overdamped (no oscillation).
-    private static final double ROTATION_STIFFNESS = 90.0;
-    private static final double ROTATION_DAMPING   = 11.0;
-
     private final Camera camera;
     private final PointLight pointLight;
     private boolean shiftLockEnabled = false;
-    private double  angularVelocity  = 0.0;
-    private double  targetYaw        = 0.0;
 
     public Player() {
         super(); // initialises position to (0, 15, 5), creates EntityPhysics
@@ -72,11 +66,9 @@ public class Player extends Entity {
         // 3. Spring-damper: smoothly drive yaw toward targetYaw while moving.
         //    When not moving, zero angular velocity so the model holds its last facing.
         if (shouldRotate) {
-            double diff = shortestAngleDiff(targetYaw, yaw);
-            angularVelocity += (diff * ROTATION_STIFFNESS - angularVelocity * ROTATION_DAMPING) * deltaTime;
-            yaw             += angularVelocity * deltaTime;
+            stepRotation(deltaTime);
         } else {
-            angularVelocity = 0.0;
+            stopRotation();
         }
 
         // 4. Apply WASD horizontal movement to the shared position
@@ -107,11 +99,4 @@ public class Player extends Entity {
     public boolean isShiftLockEnabled() { return shiftLockEnabled; }
     public void setShiftLockEnabled(boolean enabled) { shiftLockEnabled = enabled; }
 
-    /** Shortest signed angle from {@code current} to {@code target}, in [-π, π]. */
-    private static double shortestAngleDiff(double target, double current) {
-        double diff = (target - current) % (2 * Math.PI);
-        if (diff >  Math.PI) diff -= 2 * Math.PI;
-        if (diff < -Math.PI) diff += 2 * Math.PI;
-        return diff;
-    }
 }

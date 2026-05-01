@@ -66,6 +66,7 @@ public class World {
         this.player  = new Player();
         this.lighting = new Lighting();
 
+
         // Give player a point light
         addPointLight(player.getPointLight());
     }
@@ -136,6 +137,7 @@ public class World {
         addPointLight(player.getPointLight());
 
         for (Entity e : entities) e.setTerrainProvider(null);
+        entities.clear();
         worldBorder  = null;
         chunkManager = null;
         // Keep the player model in the scene and tracked in the object list

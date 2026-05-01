@@ -16,13 +16,12 @@ public class GuiDebugPanel extends GuiObject {
     private int polygonCount = 0;
     private int seed = 0;
     private boolean flying = false;
-    private String biome = "Unknown";
 
     public GuiDebugPanel() {
         this.visible = true;
     }
 
-    public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying, String biome) {
+    public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
         this.fps = fps;
         this.camX = x;
         this.camY = y;
@@ -33,7 +32,6 @@ public class GuiDebugPanel extends GuiObject {
         this.polygonCount = polygons;
         this.seed = seed;
         this.flying = flying;
-        this.biome = biome;
     }
 
     @Override
@@ -53,7 +51,6 @@ public class GuiDebugPanel extends GuiObject {
         lineList.add(String.format("Objs:   %d", objectCount));
         lineList.add(String.format("Tris:   %,d", polygonCount));
         lineList.add(String.format("Seed:   %d", seed));
-        lineList.add(String.format("Biome:  %s", biome));
         if (flying) lineList.add("** FLYING **");
         String[] lines = lineList.toArray(new String[0]);
 

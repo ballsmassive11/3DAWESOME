@@ -26,12 +26,24 @@ public abstract class Entity {
     protected double   yaw;
     protected EntityPhysics physics;
 
+    // --- Auto-rotation (spring-damper toward targetYaw) ---
+    // ζ = rotationDamping / (2√rotationStiffness) ≈ 1.0 → critically/over-damped (no oscillation).
+    private double  rotationStiffness = 90.0;
+    private double  rotationDamping   = 11.0;
+    protected double targetYaw        = 0.0;
+    private double  angularVelocity   = 0.0;
+    /** When true, {@link #applyAutoRotation} derives targetYaw from horizontal movement. */
+    private boolean autoRotate        = false;
+    private double  prevX, prevZ; // last-frame position for movement-direction tracking
+
     private MeshObject model;
 
     public Entity() {
         this.position = new Vector3d(0, 15, 5);
         this.yaw      = 0;
         this.physics  = new EntityPhysics();
+        this.prevX    = position.x;
+        this.prevZ    = position.z;
     }
 
     /**
@@ -82,6 +94,59 @@ public abstract class Entity {
     public void setTerrainProvider(TerrainHeightProvider provider) {
         physics.setTerrainProvider(provider);
     }
+
+    // --- Auto-rotation ---
+
+    /**
+     * Advances {@code yaw} toward {@code targetYaw} using a spring-damper.
+     * Call each frame while the entity should be rotating.
+     */
+    protected void stepRotation(double deltaTime) {
+        double diff = shortestAngleDiff(targetYaw, yaw);
+        angularVelocity += (diff * rotationStiffness - angularVelocity * rotationDamping) * deltaTime;
+        yaw             += angularVelocity * deltaTime;
+    }
+
+    /**
+     * Zeroes angular velocity so the model holds its current facing when not moving.
+     */
+    protected void stopRotation() {
+        angularVelocity = 0.0;
+    }
+
+    /**
+     * If {@code autoRotate} is enabled, derives {@code targetYaw} from the horizontal
+     * movement since the last call and steps the spring-damper rotation.
+     * If the entity didn't move this frame, rotation is frozen.
+     * Call once per frame after applying horizontal movement.
+     */
+    protected void applyAutoRotation(double deltaTime) {
+        double dx = position.x - prevX;
+        double dz = position.z - prevZ;
+        prevX = position.x;
+        prevZ = position.z;
+        if (!autoRotate) return;
+        if (dx * dx + dz * dz < 1e-8) {
+            stopRotation();
+        } else {
+            targetYaw = Math.atan2(-dx, -dz);
+            stepRotation(deltaTime);
+        }
+    }
+
+    public void    setAutoRotate(boolean autoRotate) { this.autoRotate = autoRotate; }
+    public boolean isAutoRotate()                    { return autoRotate; }
+
+    /** Shortest signed angle from {@code current} to {@code target}, in [-π, π]. */
+    protected static double shortestAngleDiff(double target, double current) {
+        double diff = (target - current) % (2 * Math.PI);
+        if (diff >  Math.PI) diff -= 2 * Math.PI;
+        if (diff < -Math.PI) diff += 2 * Math.PI;
+        return diff;
+    }
+
+    public void setRotationStiffness(double stiffness) { this.rotationStiffness = stiffness; }
+    public void setRotationDamping(double damping)     { this.rotationDamping   = damping;   }
 
     // --- Accessors ---
 

@@ -99,8 +99,8 @@ public class GuiCanvas extends Canvas3D {
         addMouseMotionListener(mouseHandler);
     }
 
-    public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying, String biome) {
-        debugPanel.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying, biome);
+    public void updateStats(double fps, double x, double y, double z, double yaw, double pitch, int objects, int polygons, int seed, boolean flying) {
+        debugPanel.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying);
     }
 
     public void toggleDebugPanel() {

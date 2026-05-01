@@ -405,12 +405,7 @@ public class Game3DRenderer {
     public void updateHud(double fps, double x, double y, double z,
                           double yaw, double pitch, int objects, int polygons,
                           int seed, boolean flying) {
-        String biome = "Unknown";
-        TerrainHeightProvider provider = world.getTerrainProvider();
-        if (provider instanceof MapGenerator) {
-            biome = ((MapGenerator) provider).getBiomeAt((float) x, (float) z);
-        }
-        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying, biome);
+        canvas.updateStats(fps, x, y, z, yaw, pitch, objects, polygons, seed, flying);
     }
 
     public DayNightCycle getDayNightCycle() { return dayNightCycle; }

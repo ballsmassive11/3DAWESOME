@@ -27,31 +27,22 @@ import java.util.stream.IntStream;
  * Generates a continuous terrain mesh by displacing vertices of a flat grid
  * using layered (FBm) simplex noise with domain warping.
  *
- * <p>Supports two terrain types controlled by {@link #setTerrainType}:
- * <ul>
- *   <li><b>biome</b> — original ocean/sand/grass/rock/snow landscape (default)</li>
- *   <li><b>hills</b> — all-land rolling hills with river channels and streetlamps</li>
- * </ul>
- *
- * <p>The four biome textures (sand, grass, rock, snow) are blended per-vertex via a GLSL
+ * <p>The four terrain textures (sand, grass, rock, snow) are blended per-vertex via a GLSL
  * shader that reads the blend weight {@code t} stored in the vertex colour alpha.
  */
 public class MapGenerator implements TerrainHeightProvider {
 
     private static final String SHADER_DIR  = "resources/terrain/";
-    private static final String LAMP_PATH   = "resources/models/StreetLamp/streetlamp.obj";
     private static final String TREE_PATH   = "resources/models/Tree/Lowpoly_tree_sample.obj";
 
     // Hills terrain constants
     private static final float HILLS_BASE_Y = 0.3f;   // minimum hill height (above water)
     private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
     private static final float RIVER_WIDTH  = 0.15f;  // |riverNoise| threshold for channel width
-    private static final int   LAMP_SPACING = 25;     // grid cells between streetlamp sample points
-    private static final double LAMP_SCALE  = 4.0;    // uniform scale applied to each lamp
     private static final float ALTITUDE_BONUS = 70f;
 
     // Tree spawning constants
-    private static final float TREE_DENSITY = 0.01f;  // probability of a tree per cell
+    private static final float TREE_DENSITY = 0.01f;
     private static final double TREE_SCALE_MIN = 4.5;
     private static final double TREE_SCALE_MAX = 7.5;
 
@@ -59,21 +50,13 @@ public class MapGenerator implements TerrainHeightProvider {
     private Texture2D[]        terrainTextures;
     private GLSLShaderProgram  terrainShaderProgram;
     private ShaderAttributeSet terrainShaderAttrs;
-    // Single shared appearance – all chunks reference the same instance.
-    // After the first chunk makes it live, subsequent chunks reuse the already-live
-    // NodeComponent so Java3D skips full initialization (reference-count bump only).
     private ShaderAppearance   cachedChunkAppearance;
 
     // ------------------------------------------------------------------
     // Noise generators
     // ------------------------------------------------------------------
 
-    /** Biome terrain: domain-warp pass for organic coastlines */
-    private final FastNoiseLite warpNoise;
-    /** Biome terrain: main FBm height noise */
-    private final FastNoiseLite noise;
-
-    /** Hills terrain: smoother FBm for rounded rolling hills */
+    /** Smoother FBm for rounded rolling hills */
     private final FastNoiseLite hillsNoise;
 
     /** River channels: domain-warp for organic river curves */
@@ -81,11 +64,7 @@ public class MapGenerator implements TerrainHeightProvider {
     /** River channels: low-frequency FBm; rivers where |val| < RIVER_WIDTH */
     private final FastNoiseLite riverNoise;
 
-    /** Biome temperature noise */
-    private final FastNoiseLite tempNoise;
-    /** Biome moisture noise */
-    private final FastNoiseLite moistNoise;
-    /** Biome altitude noise */
+    /** Altitude noise for mountain detection */
     private final FastNoiseLite altNoise;
 
     // ------------------------------------------------------------------
@@ -94,32 +73,11 @@ public class MapGenerator implements TerrainHeightProvider {
 
     private int    gridSize    = 250;
     private float  cellSize    = 0.8f;
-    private float  threshold   = -0.2f;   // biome: noise value below which terrain is "under water"
     private float  heightScale = 7.0f;
-    private float  zOffset     = 0.0f;  // chunk system uses absolute world coordinates; keep at 0
-    private String terrainType = "hills"; // "biome" or "hills"
     private int    currentSeed = 0;
     private ProgressReporter reporter;
 
     public MapGenerator() {
-        // --- biome warp ---
-        warpNoise = new FastNoiseLite();
-        warpNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        warpNoise.SetDomainWarpType(FastNoiseLite.DomainWarpType.OpenSimplex2Reduced);
-        warpNoise.SetDomainWarpAmp(28f);
-        warpNoise.SetFrequency(0.028f);
-        warpNoise.SetFractalType(FastNoiseLite.FractalType.DomainWarpIndependent);
-        warpNoise.SetFractalOctaves(3);
-
-        // --- biome height ---
-        noise = new FastNoiseLite();
-        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        noise.SetFrequency(0.022f);
-        noise.SetFractalType(FastNoiseLite.FractalType.FBm);
-        noise.SetFractalOctaves(5);
-        noise.SetFractalLacunarity(2.0f);
-        noise.SetFractalGain(0.3f);
-
         // --- hills height: fewer octaves, higher gain → smoother, rounder hills ---
         hillsNoise = new FastNoiseLite();
         hillsNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
@@ -146,20 +104,6 @@ public class MapGenerator implements TerrainHeightProvider {
         riverNoise.SetFractalOctaves(2);
         riverNoise.SetFractalLacunarity(2.0f);
         riverNoise.SetFractalGain(0.5f);
-
-        // --- temperature noise: low frequency for large-scale climate zones ---
-        tempNoise = new FastNoiseLite();
-        tempNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        tempNoise.SetFrequency(0.0005f);
-        tempNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
-        tempNoise.SetFractalOctaves(3);
-
-        // --- moisture noise: similar low frequency for large-scale climate zones ---
-        moistNoise = new FastNoiseLite();
-        moistNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        moistNoise.SetFrequency(0.001f);
-        moistNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
-        moistNoise.SetFractalOctaves(3);
 
         // --- altitude noise: medium frequency for mountainous areas ---
         altNoise = new FastNoiseLite();
@@ -191,17 +135,16 @@ public class MapGenerator implements TerrainHeightProvider {
             world.getChunkManager().shutdown();
         }
 
-        buildTerrainAppearance(); // loads textures and shader into terrainTextures/terrainShaderProgram/terrainShaderAttrs
+        buildTerrainAppearance();
         world.setTerrainProvider(this);
 
-        // Create the chunk manager and do a synchronous preload of the area around spawn.
         report(0.05f, "Creating chunk manager...");
         ChunkManager cm = new ChunkManager(this, world);
         world.setChunkManager(cm);
 
         report(0.1f, "Preloading terrain chunks around spawn...");
         javax.vecmath.Vector3d spawn = world.getPlayer().getPosition();
-        cm.preload(spawn, 5, reporter);   // radius 5 → up to 81 chunks synchronously
+        cm.preload(spawn, 5, reporter);
 
         report(0.8f, "Creating world border...");
         WorldBorder border = new WorldBorder(ChunkManager.BORDER_RADIUS, world);
@@ -217,29 +160,12 @@ public class MapGenerator implements TerrainHeightProvider {
     // ------------------------------------------------------------------
 
     /**
-     * Fills {@code heights} and {@code colors} (and optionally {@code riverVals}) for a
-     * standalone {@code n × n} vertex grid whose (0,0) vertex sits at world position
-     * {@code (wx0, wz0)}.  Adjacent chunks built with matching offsets share the same
-     * border heights and therefore tile seamlessly.
-     *
-     * @param wx0       World X of the chunk's (row=0, col=0) vertex.
-     * @param wz0       World Z of the chunk's (row=0, col=0) vertex.
-     * @param n         Number of vertices per side (so {@code n-1} cells per side).
-     * @param heights   Output array of size {@code n*n}.
-     * @param colors    Output array of size {@code n*n*4} (RGBA per vertex).
-     * @param riverVals Output array of size {@code n*n}, or {@code null} for biome terrain.
+     * Fills {@code heights}, {@code colors} (RGBA per vertex; alpha = blend height),
+     * and {@code riverVals} for an {@code n × n} vertex grid whose (0,0) vertex sits
+     * at world position {@code (wx0, wz0)}.
      */
     public void buildChunkData(float wx0, float wz0, int n, float chunkCellSize,
                                float[] heights, float[] colors, float[] riverVals) {
-        if (isHillsTerrain()) {
-            buildHillsChunk(wx0, wz0, n, chunkCellSize, heights, colors, riverVals);
-        } else {
-            buildBiomeChunk(wx0, wz0, n, chunkCellSize, heights, colors);
-        }
-    }
-
-    private void buildHillsChunk(float wx0, float wz0, int n, float chunkCellSize,
-                                  float[] heights, float[] colors, float[] riverVals) {
         IntStream.range(0, n).parallel().forEach(r -> {
             float nz = wz0 + r * chunkCellSize;
             FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(0f, 0f);
@@ -260,129 +186,38 @@ public class MapGenerator implements TerrainHeightProvider {
                 if (riverVals != null) riverVals[idx] = riverVal;
 
                 float height, blendT;
-                float rWeight = 0, gWeight = 0, bWeight = 0; // Tundra, Desert, Forest
-                String biome = getBiomeAt(nx, nz);
-                if (biome.equals("Tundra")) rWeight = 1.0f;
-                else if (biome.equals("Desert")) gWeight = 1.0f;
-                else if (biome.equals("Forest")) bWeight = 1.0f;
-                else if (biome.equals("Stony Peaks")) {
-                    rWeight = 1.0f; // cold/mountainous → use tundra/snow texture
-                } else if (biome.equals("Meadow")) {
-                    bWeight = 1.0f; // high altitude grass → use forest/grass texture
-                }
-
                 if (riverVal < RIVER_WIDTH) {
                     float t     = riverVal / RIVER_WIDTH;
                     float blend = t * t * (3.0f - 2.0f * t);
-
-                    // Fade biome weights in the riverbed so it uses the default sand texture
-                    rWeight *= blend;
-                    gWeight *= blend;
-                    bWeight *= blend;
-
                     float baseHeight = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
-                    float altExtra = 0;
                     if (altVal > 0.3f) {
-                        altExtra = (altVal - 0.3f) * ALTITUDE_BONUS;
-                        // blend the alt extra too, so it doesn't just cut off at the river bank
-                        baseHeight += altExtra * blend;
+                        baseHeight += (altVal - 0.3f) * ALTITUDE_BONUS * blend;
                     }
                     height = baseHeight;
-                    
                     float baseT = blend * normalizedH * 0.15f;
-                    if (altVal > 0.3f) {
-                        // Stony Peaks: start with baseT but add altitude boost, clamped at 1.0
-                        blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
-                    } else {
-                        // Regular Tundra: boost baseT slightly to ensure it's snowy enough
-                        blendT = Math.min(baseT * 1.2f, 1.0f);
-                    }
+                    blendT = altVal > 0.3f
+                            ? Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f)
+                            : Math.min(baseT * 1.2f, 1.0f);
                 } else {
                     height = hillHeight;
                     float baseT = Math.min(normalizedH * 0.20f, 0.65f);
-
                     if (altVal > 0.3f) {
                         height += (altVal - 0.3f) * ALTITUDE_BONUS;
-                        // Stony Peaks: start with baseT but add altitude boost, clamped at 1.0
                         blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
                     } else {
-                        // Regular Tundra: boost baseT slightly to ensure it's snowy enough
                         blendT = Math.min(baseT * 1.2f, 1.0f);
                     }
                 }
 
                 heights[idx] = height;
                 int cIdx = idx * 4;
-                colors[cIdx    ] = rWeight;
-                colors[cIdx + 1] = gWeight;
-                colors[cIdx + 2] = bWeight;
+                colors[cIdx    ] = 0f;
+                colors[cIdx + 1] = 0f;
+                colors[cIdx + 2] = 0f;
                 colors[cIdx + 3] = blendT;
             }
         });
     }
-
-    private void buildBiomeChunk(float wx0, float wz0, int n, float chunkCellSize,
-                                  float[] heights, float[] colors) {
-        IntStream.range(0, n).parallel().forEach(r -> {
-            float nz = wz0 + r * chunkCellSize;
-            FastNoiseLite.Vector2 coord = new FastNoiseLite.Vector2(0f, 0f);
-            int rowIdx = r * n;
-
-            for (int c = 0; c < n; c++) {
-                float nx  = wx0 + c * chunkCellSize;
-                int   idx = rowIdx + c;
-
-                coord.x = nx; coord.y = nz;
-                warpNoise.DomainWarp(coord);
-                float noiseVal = noise.GetNoise(coord.x, coord.y);
-                float altVal   = altNoise.GetNoise(nx, nz);
-
-                float height, blendT;
-                float rWeight = 0, gWeight = 0, bWeight = 0; // Tundra, Desert, Forest
-                String biome = getBiomeAt(nx, nz);
-                if (biome.equals("Tundra")) rWeight = 1.0f;
-                else if (biome.equals("Desert")) gWeight = 1.0f;
-                else if (biome.equals("Forest")) bWeight = 1.0f;
-                else if (biome.equals("Stony Peaks")) {
-                    rWeight = 1.0f; // cold/mountainous → use tundra/snow texture
-                } else if (biome.equals("Meadow")) {
-                    bWeight = 1.0f; // high altitude grass → use forest/grass texture
-                }
-
-                if (noiseVal < threshold) {
-                    float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
-                    height = -(float) Math.pow(depth, 1.5) * 4.0f;
-                    blendT = 0.0f;
-                    // Reset biome weights underwater to use the default sand texture
-                    rWeight = 0.0f;
-                    gWeight = 0.0f;
-                    bWeight = 0.0f;
-                } else {
-                    float baseT = (noiseVal - threshold) / (1.0f - threshold);
-                    height = (float) Math.pow(baseT, 2.5) * heightScale;
-
-                    if (altVal > 0.3f) {
-                        float altExtra = (altVal - 0.3f) * 80.0f;
-                        height += altExtra;
-                        // Stony Peaks: start with baseT but add altitude boost, clamped at 1.0
-                        blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
-                    } else {
-                        // Regular Tundra: boost baseT slightly to ensure it's snowy enough
-                        blendT = Math.min(baseT * 1.2f, 1.0f);
-                    }
-                }
-
-                heights[idx] = height;
-                int cIdx = idx * 4;
-                colors[cIdx    ] = rWeight;
-                colors[cIdx + 1] = gWeight;
-                colors[cIdx + 2] = bWeight;
-                colors[cIdx + 3] = blendT;
-            }
-        });
-    }
-
-    public boolean isHillsTerrain() { return "hills".equals(terrainType); }
 
     // ------------------------------------------------------------------
     // Shader appearance builder
@@ -436,13 +271,6 @@ public class MapGenerator implements TerrainHeightProvider {
         return createChunkAppearance();
     }
 
-    /**
-     * Returns the shared {@link ShaderAppearance} for terrain chunks.
-     * <p>
-     * A single instance is created lazily and reused by every chunk.  Once the
-     * first chunk makes it live, Java3D only needs a reference-count bump for
-     * subsequent chunks — no full shader/texture initialisation per chunk.
-     */
     ShaderAppearance createChunkAppearance() {
         if (cachedChunkAppearance != null) return cachedChunkAppearance;
         ShaderAppearance app = new ShaderAppearance();
@@ -471,70 +299,18 @@ public class MapGenerator implements TerrainHeightProvider {
         return app;
     }
 
-    public String getBiomeAt(float wx, float wz) {
-        float nx = wx;
-        float nz = wz - zOffset;
-        float temp = tempNoise.GetNoise(nx, nz);
-        float moist = moistNoise.GetNoise(nx, nz);
-        float alt = altNoise.GetNoise(nx, nz);
-
-        if (alt > 0.3f) {
-            if (temp < 0.1f) {
-                return "Stony Peaks";
-            } else {
-                return "Meadow";
-            }
-        }
-
-        if (temp < -0.3f) {
-            return "Tundra";
-        } else if (moist < -0.2f) {
-            return "Desert";
-        } else if (moist > 0.2f) {
-            return "Forest";
-        } else {
-            return "Steppe";
-        }
-    }
-
     // ------------------------------------------------------------------
     // TerrainHeightProvider
     // ------------------------------------------------------------------
 
     @Override
     public float getHeightAt(float wx, float wz) {
-        float nx = wx;
-        float nz = wz - zOffset;
-        return "hills".equals(terrainType) ? getHillsHeightAt(nx, nz) : getBiomeHeightAt(nx, nz);
-    }
-
-    private float getBiomeHeightAt(float nx, float nz) {
-        FastNoiseLite.Vector2 coord = new FastNoiseLite.Vector2(nx, nz);
-        warpNoise.DomainWarp(coord);
-        float noiseVal = noise.GetNoise(coord.x, coord.y);
-        float altVal   = altNoise.GetNoise(nx, nz);
-
-        if (noiseVal < threshold) {
-            float depth = Math.min((threshold - noiseVal) / (threshold + 1.0f), 1.0f);
-            return -(float) Math.pow(depth, 1.5) * 4.0f;
-        } else {
-            float t = (noiseVal - threshold) / (1.0f - threshold);
-            float h = (float) Math.pow(t, 2.5) * heightScale;
-
-            if (altVal > 0.3f) {
-                h += (altVal - 0.3f) * ALTITUDE_BONUS;
-            }
-            return h;
-        }
-    }
-
-    private float getHillsHeightAt(float nx, float nz) {
-        float noiseVal    = hillsNoise.GetNoise(nx, nz);
+        float noiseVal    = hillsNoise.GetNoise(wx, wz);
         float normalizedH = (noiseVal + 1.0f) * 0.5f;
         float hillHeight  = HILLS_BASE_Y + normalizedH * heightScale;
-        float altVal      = altNoise.GetNoise(nx, nz);
+        float altVal      = altNoise.GetNoise(wx, wz);
 
-        FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(nx, nz);
+        FastNoiseLite.Vector2 rc = new FastNoiseLite.Vector2(wx, wz);
         riverWarp.DomainWarp(rc);
         float riverVal = Math.abs(riverNoise.GetNoise(rc.x, rc.y));
 
@@ -561,20 +337,13 @@ public class MapGenerator implements TerrainHeightProvider {
 
     public void setSeed(int seed) {
         this.currentSeed = seed;
-        noise.SetSeed(seed);
-        warpNoise.SetSeed(seed);
         hillsNoise.SetSeed(seed);
         riverNoise.SetSeed(seed + 1337);
         riverWarp.SetSeed(seed + 2674);
-        tempNoise.SetSeed(seed + 4011);
-        moistNoise.SetSeed(seed + 5348);
         altNoise.SetSeed(seed + 6685);
     }
 
-    public void setTerrainType(String type)    { this.terrainType = type;      }
-    public void setGridSize(int gridSize)      { this.gridSize    = gridSize;  }
-    public void setCellSize(float cellSize)    { this.cellSize    = cellSize;  }
-    public void setThreshold(float threshold)  { this.threshold   = threshold; }
-    public void setHeightScale(float hs)       { this.heightScale = hs;        }
-    public void setZOffset(float zOffset)      { this.zOffset     = zOffset;   }
+    public void setGridSize(int gridSize)    { this.gridSize    = gridSize;  }
+    public void setCellSize(float cellSize)  { this.cellSize    = cellSize;  }
+    public void setHeightScale(float hs)     { this.heightScale = hs;        }
 }

@@ -8,7 +8,6 @@ import objects.Cube;
 import objects.MeshObject;
 import physics.AABB;
 import terrain.MapGenerator;
-import terrain.MapGeneratorLegacy;
 import world.Camera;
 import world.GameSettings;
 import world.World;
@@ -67,9 +66,6 @@ public class CommandHandler {
 
         } else if (cmd.equals("genmap")) {
             generateMap(hud, parts.length == 2 ? parts[1] : "");
-
-        } else if (cmd.equals("genmapl")) {
-            generateMapLegacy(hud, parts.length == 2 ? parts[1] : "");
 
         } else if (cmd.equals("delmap")) {
             renderer.notifySceneChanging();
@@ -163,10 +159,8 @@ public class CommandHandler {
             hud.logOutput("fog color <r> <g> <b>   - Set fog color (0-1 or 0-255)");
             hud.logOutput("fov <degrees>           - Set field of view (10-170)");
             hud.logOutput("rdist <distance>        - Set render distance");
-            hud.logOutput("genmap [key=val ...]    - Regenerate mesh terrain");
-            hud.logOutput("  params: seed size height threshold cellsize type=biome|hills");
-            hud.logOutput("genmapl [key=val ...]   - Regenerate terrain (legacy brick mode)");
-            hud.logOutput("  params: seed size height threshold blockwidth");
+            hud.logOutput("genmap [key=val ...]    - Regenerate terrain");
+            hud.logOutput("  params: seed size height cellsize");
             hud.logOutput("delmap                  - Delete the current terrain");
             hud.logOutput("hitbox on|off           - Toggle AABB hitbox wireframes");
             hud.logOutput("spawn cube [key=val ...] - Spawn a cube   (size x y z collide)");
@@ -274,12 +268,10 @@ public class CommandHandler {
     }
 
     private void generateMap(CommandHud hud, String params) {
-        int    seed      = (int) System.currentTimeMillis();
-        int    size      = 160;
-        float  height    = 16.0f;
-        float  threshold = -0.1f;
-        float  cellSize  = 0.8f;
-        String type      = "biome";
+        int   seed     = (int) System.currentTimeMillis();
+        int   size     = 160;
+        float height   = 16.0f;
+        float cellSize = 0.8f;
 
         for (String token : params.trim().split("\\s+")) {
             if (token.isEmpty()) continue;
@@ -289,12 +281,10 @@ public class CommandHandler {
             String val = kv[1];
             try {
                 switch (key) {
-                    case "seed":      seed      = Integer.parseInt(val);  break;
-                    case "size":      size      = Integer.parseInt(val);  break;
-                    case "height":    height    = Float.parseFloat(val);  break;
-                    case "threshold": threshold = Float.parseFloat(val);  break;
-                    case "cellsize":  cellSize  = Float.parseFloat(val);  break;
-                    case "type":      type      = val.toLowerCase();      break;
+                    case "seed":     seed     = Integer.parseInt(val); break;
+                    case "size":     size     = Integer.parseInt(val); break;
+                    case "height":   height   = Float.parseFloat(val); break;
+                    case "cellsize": cellSize = Float.parseFloat(val); break;
                     default: hud.logOutput("Unknown param: " + key); break;
                 }
             } catch (NumberFormatException e) {
@@ -304,11 +294,9 @@ public class CommandHandler {
         }
 
         final int fSeed = seed, fSize = size;
-        final float fHeight = height, fThreshold = threshold, fCellSize = cellSize;
-        final String fType = type;
+        final float fHeight = height, fCellSize = cellSize;
 
-        hud.logOutput("Generating " + fType + " map (seed=" + fSeed + " size=" + fSize
-                + " height=" + fHeight + ") ...");
+        hud.logOutput("Generating map (seed=" + fSeed + " size=" + fSize + " height=" + fHeight + ") ...");
 
         Thread t = new Thread(() -> {
             renderer.stopRenderer();
@@ -319,9 +307,7 @@ public class CommandHandler {
                 gen.setSeed(fSeed);
                 gen.setGridSize(fSize);
                 gen.setHeightScale(fHeight);
-                gen.setThreshold(fThreshold);
                 gen.setCellSize(fCellSize);
-                gen.setTerrainType(fType);
                 gen.generate(world);
                 world.setSeed(fSeed);
             } finally {
@@ -330,63 +316,6 @@ public class CommandHandler {
             }
             hud.logOutput("Map ready.");
         }, "genmap-thread");
-        t.setDaemon(true);
-        t.start();
-    }
-
-    private void generateMapLegacy(CommandHud hud, String params) {
-        int   seed       = (int) System.currentTimeMillis();
-        int   size       = 160;
-        float height     = 16.0f;
-        float threshold  = 0.05f;
-        float blockWidth = 0.8f;
-
-        for (String token : params.trim().split("\\s+")) {
-            if (token.isEmpty()) continue;
-            String[] kv = token.split("=", 2);
-            if (kv.length != 2) { hud.logOutput("Skipping bad param: " + token); continue; }
-            String key = kv[0].toLowerCase();
-            String val = kv[1];
-            try {
-                switch (key) {
-                    case "seed":       seed       = Integer.parseInt(val);  break;
-                    case "size":       size       = Integer.parseInt(val);  break;
-                    case "height":     height     = Float.parseFloat(val);  break;
-                    case "threshold":  threshold  = Float.parseFloat(val);  break;
-                    case "blockwidth": blockWidth = Float.parseFloat(val);  break;
-                    default: hud.logOutput("Unknown param: " + key); break;
-                }
-            } catch (NumberFormatException e) {
-                hud.logOutput("Invalid value for " + key + ": " + val);
-                return;
-            }
-        }
-
-        final int fSeed = seed, fSize = size;
-        final float fHeight = height, fThreshold = threshold, fBlockWidth = blockWidth;
-
-        hud.logOutput("Generating legacy map (seed=" + fSeed + " size=" + fSize
-                + " height=" + fHeight + " threshold=" + fThreshold + ") ...");
-
-        Thread t = new Thread(() -> {
-            renderer.stopRenderer();
-            renderer.notifySceneChanging();
-            try {
-                world.clearObjects();
-                MapGeneratorLegacy gen = new MapGeneratorLegacy();
-                gen.setSeed(fSeed);
-                gen.setGridSize(fSize);
-                gen.setHeightScale(fHeight);
-                gen.setThreshold(fThreshold);
-                gen.setBlockWidth(fBlockWidth);
-                gen.generate(world);
-                world.setSeed(fSeed);
-            } finally {
-                renderer.notifySceneReady();
-                renderer.startRenderer();
-            }
-            hud.logOutput("Map ready.");
-        }, "genmapl-thread");
         t.setDaemon(true);
         t.start();
     }

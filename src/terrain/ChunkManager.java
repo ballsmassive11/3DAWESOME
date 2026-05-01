@@ -1,5 +1,7 @@
 package terrain;
 
+import entity.EntityPhysics;
+import entity.Guy;
 import objects.MeshObject;
 import objects.TerrainMesh;
 import particles.ParticleEmitter;
@@ -62,6 +64,12 @@ public class ChunkManager {
     private final Set<ChunkCoord>                   queued    = ConcurrentHashMap.newKeySet();
     /** Chunks that have been generated and are waiting to be added to the scene. */
     private final ConcurrentLinkedQueue<PendingChunk> pending = new ConcurrentLinkedQueue<>();
+
+    /**
+     * Persists guy positions across load/unload cycles.  Entries are created on first
+     * chunk generation and never removed until {@link #clearAll} is called.
+     */
+    private final Map<ChunkCoord, List<Guy>> chunkGuys = new ConcurrentHashMap<>();
 
     private final ExecutorService executor = Executors.newFixedThreadPool(
             Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
@@ -199,7 +207,7 @@ public class ChunkManager {
 
             float[] heights   = new float[n * n];
             float[] colors    = new float[n * n * 4];
-            float[] riverVals = generator.isHillsTerrain() ? new float[n * n] : null;
+            float[] riverVals = new float[n * n];
 
             generator.buildChunkData(wx0, wz0, n, CELL_SIZE, heights, colors, riverVals);
 
@@ -211,8 +219,12 @@ public class ChunkManager {
             mesh.getBranchGroup(); // triggers geometry construction and caches it
 
             List<WaterTile>   water = buildWaterTiles(wx0, wz0, n, heights);
-            List<MeshObject>  trees = buildTrees(coord, wx0, wz0, n, heights, riverVals, generator);
+            List<MeshObject>  trees = buildTrees(coord, wx0, wz0, n, heights, riverVals);
             List<ParticleEmitter> emitters = buildLeafEmitters(trees);
+
+            // Guys persist across load/unload cycles; only create them on first visit.
+            List<Guy> guys = chunkGuys.computeIfAbsent(coord,
+                    k -> buildGuys(k, wx0, wz0, n, heights));
 
             // Pack terrain mesh + all trees into a single BranchGroup so the live scene
             // graph only needs one addChild call per chunk instead of 1+N_trees.
@@ -237,7 +249,7 @@ public class ChunkManager {
                     new Point3d(wx0,          minH,                       wz0),
                     new Point3d(wx0 + chunkW, maxH + TREE_SCALE_MAX * 2.0, wz0 + chunkW)));
 
-            pending.add(new PendingChunk(coord, chunkSceneBG, water, trees, emitters));
+            pending.add(new PendingChunk(coord, chunkSceneBG, water, trees, emitters, guys));
         } catch (Exception ex) {
             System.err.println("Chunk generation failed for " + coord + ": " + ex.getMessage());
         } finally {
@@ -309,8 +321,7 @@ public class ChunkManager {
 
     private static List<MeshObject> buildTrees(ChunkCoord coord,
                                                 float wx0, float wz0, int n,
-                                                float[] heights, float[] riverVals,
-                                                MapGenerator generator) {
+                                                float[] heights, float[] riverVals) {
         // Deterministic seed per chunk so re-generation produces the same trees.
         long seed = ((long) coord.x * 73856093L) ^ ((long) coord.z * 19349663L) ^ 77L;
         Random rng = new Random(seed);
@@ -318,36 +329,14 @@ public class ChunkManager {
         List<MeshObject> trees = new ArrayList<>();
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
-                float wx = wx0 + c * CELL_SIZE;
-                float wz = wz0 + r * CELL_SIZE;
-                String biome = generator.getBiomeAt(wx, wz);
-
-                float density = TREE_DENSITY;
-                double scaleMin = TREE_SCALE_MIN;
-                double scaleMax = TREE_SCALE_MAX;
-
-                if (biome.equals("Desert")) {
-                    density = 0.001f;
-                } else if (biome.equals("Tundra")) {
-                    density = 0.0f;
-                    scaleMin *= 0.6;
-                    scaleMax *= 0.6;
-                } else if (biome.equals("Forest")) {
-                    density = 0.06f;
-                } else if (biome.equals("Steppe")) {
-                    density = 0.005f;
-                } else if (biome.equals("Meadow")) {
-                    density = 0.03f;
-                } else if (biome.equals("Stony Peaks")) {
-                    density = 0.0f;
-                }
-
-                if (rng.nextFloat() > density) continue;
+                if (rng.nextFloat() > TREE_DENSITY) continue;
                 float h = heights[r * n + c];
                 if (h < 0.1f) continue;
-                if (riverVals != null && riverVals[r * n + c] < RIVER_WIDTH) continue;
+                if (riverVals[r * n + c] < RIVER_WIDTH) continue;
 
-                double scale = scaleMin + (scaleMax - scaleMin) * rng.nextDouble();
+                float wx = wx0 + c * CELL_SIZE;
+                float wz = wz0 + r * CELL_SIZE;
+                double scale = TREE_SCALE_MIN + (TREE_SCALE_MAX - TREE_SCALE_MIN) * rng.nextDouble();
 
                 MeshObject tree = new MeshObject(TREE_PATH, true);
                 tree.setCollidable(true);
@@ -393,6 +382,38 @@ public class ChunkManager {
     }
 
     // -----------------------------------------------------------------------
+    // Internal: guy spawning
+    // -----------------------------------------------------------------------
+
+    /** Max guys spawned per chunk on first generation. */
+    private static final int GUY_MAX_PER_CHUNK = 2;
+
+    /**
+     * Builds 0–{@value #GUY_MAX_PER_CHUNK} guys for a newly-generated chunk.
+     * Only called once per chunk coord; subsequent loads reuse the returned list.
+     */
+    private static List<Guy> buildGuys(ChunkCoord coord,
+                                       float wx0, float wz0, int n, float[] heights) {
+        long seed = ((long) coord.x * 0xDEADBEEFL) ^ ((long) coord.z * 0xCAFEBABEL) ^ 0xF00DL;
+        Random rng = new Random(seed);
+
+        int count = rng.nextInt(GUY_MAX_PER_CHUNK + 1); // 0 to GUY_MAX_PER_CHUNK inclusive
+        List<Guy> guys = new ArrayList<>(count);
+        int tries = 0;
+        while (guys.size() < count && tries < count * 8) {
+            tries++;
+            int r = 2 + rng.nextInt(n - 4);
+            int c = 2 + rng.nextInt(n - 4);
+            float h = heights[r * n + c];
+            if (h < 0.5f) continue; // skip underwater / very low spots
+            double gx = wx0 + c * CELL_SIZE;
+            double gz = wz0 + r * CELL_SIZE;
+            guys.add(new Guy(seed ^ tries, gx, gz, h));
+        }
+        return guys;
+    }
+
+    // -----------------------------------------------------------------------
     // Cleanup
     // -----------------------------------------------------------------------
 
@@ -407,6 +428,7 @@ public class ChunkManager {
         loaded.clear();
         queued.clear();
         pending.clear();
+        chunkGuys.clear();
         lastPCX = Integer.MAX_VALUE;
         lastPCZ = Integer.MAX_VALUE;
     }
@@ -438,15 +460,17 @@ public class ChunkManager {
         final List<WaterTile>       water;
         final List<MeshObject>      trees;
         final List<ParticleEmitter> emitters;
+        final List<Guy>             guys;
 
         PendingChunk(ChunkCoord coord, BranchGroup chunkSceneBG,
                      List<WaterTile> water, List<MeshObject> trees,
-                     List<ParticleEmitter> emitters) {
+                     List<ParticleEmitter> emitters, List<Guy> guys) {
             this.coord        = coord;
             this.chunkSceneBG = chunkSceneBG;
             this.water        = water;
             this.trees        = trees;
             this.emitters     = emitters;
+            this.guys         = guys;
         }
     }
 
@@ -455,30 +479,48 @@ public class ChunkManager {
         final List<WaterTile>       water;
         final List<MeshObject>      trees;
         final List<ParticleEmitter> emitters;
+        final List<Guy>             guys;
 
         ChunkEntry(PendingChunk p) {
             this.chunkSceneBG = p.chunkSceneBG;
             this.water        = p.water;
             this.trees        = p.trees;
             this.emitters     = p.emitters;
+            this.guys         = p.guys;
         }
 
         void addToWorld(World world) {
             // One addChild for the entire terrain + tree geometry.
             world.addSceneGroup(chunkSceneBG);
             // Water tiles need to go in the waterGroup for render ordering.
-            for (WaterTile w : water)        world.addObject(w);
+            for (WaterTile w : water)          world.addObject(w);
             // Trees are already in the scene via chunkSceneBG; only register for collision.
-            for (MeshObject t : trees)       world.registerForCollision(t);
+            for (MeshObject t : trees)         world.registerForCollision(t);
             for (ParticleEmitter e : emitters) world.addEmitter(e);
+            // Guys: register in world on first ever load; re-attach model on subsequent loads.
+            for (Guy g : guys) {
+                g.setActive(true);
+                if (!g.isInWorld()) {
+                    world.addEntity(g);   // adds to entities list + attaches model
+                    g.markInWorld();
+                    g.setPlayerPosition(world.getPlayer().getPosition());
+                } else {
+                    world.addObject(g.getModel()); // re-attach previously detached model
+                }
+            }
         }
 
         void removeFromWorld(World world) {
             // Detaching chunkSceneBG removes terrain + all trees in one call.
             chunkSceneBG.detach();
-            for (WaterTile w : water)        world.removeObject(w);
-            for (MeshObject t : trees)       world.unregisterFromCollision(t);
+            for (WaterTile w : water)          world.removeObject(w);
+            for (MeshObject t : trees)         world.unregisterFromCollision(t);
             for (ParticleEmitter e : emitters) world.removeEmitter(e);
+            // Deactivate guys and remove their models; their positions are preserved.
+            for (Guy g : guys) {
+                g.setActive(false);
+                if (g.isInWorld()) world.removeObject(g.getModel());
+            }
         }
     }
 }
