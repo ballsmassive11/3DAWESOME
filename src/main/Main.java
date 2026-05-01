@@ -131,7 +131,7 @@ public class Main {
         if (modsDir.isDirectory()) {
             File[] pys = modsDir.listFiles((d, n) -> n.endsWith(".py"));
             if (pys != null && pys.length > 0) {
-                ScriptRunner runner = new ScriptRunner(world);
+                ScriptRunner runner = new ScriptRunner(world,gui);
                 for (File f : pys) {
                     String err = runner.runFile(f.getPath());
                     if (err != null) System.err.println("[mod " + f.getName() + "] " + err);
@@ -149,89 +149,10 @@ public class Main {
         mapGen.generate(world);
 
         gui.setLoadingProgress(0.75f, "Spawning world objects...");
-        Cube cube = new Cube(5);
-        cube.setPosition(0, 10, 20);
-        world.addObject(cube);
 
-        // Add the model object
-        MeshObject suzanne = new MeshObject("resources/models/Suzanne/suzanne.obj");
-        suzanne.setPosition(0.0f, 10.0f, -8.0f);
-        suzanne.setScale(3.5f);
-        suzanne.setColor(new Color3f(0.8f, 0.4f, 0.1f));
-        suzanne.setAngularVelocity(0, 1.0, 0); // Rotate the monkey head
-        world.addObject(suzanne);
 
-        // Happy particles raining from above Suzanne's head
-        world.addEmitter(new ParticleEmitter(0.0, 13.5, -8.0)
-                .setSpawnMode(ParticleEmitter.SpawnMode.BRICK)
-                .setBrickSize(4f, 0.1f, 4f)
-                .setEmissionRate(25)
-                .setPitch(-Math.PI / 2)   // straight down
-                .setSpread(0.2)
-                .setSpeed(3.5)
-                .setStartColor(new Color4f(1f, 1f, 1f, 1f))
-                .setEndColor(new Color4f(1f, 1f, 1f, 0f))
-                .setStartSize(1.2f)
-                .setEndSize(0.6f)
-                .setLifetime(2.0f)
-                .setGravityScale(0.1f)
-                .setRotationSpeed(90f)
-                .setAtlasPath("resources/particles/happyhappyhappy.png"));
-
-        MeshObject boat = new MeshObject("resources/models/Boat/boat2.obj", true);
-        boat.setPosition(-8.0f, 11.0f, -8.0f);
-        boat.setScale(3.5f);
-        boat.setAngularVelocity(0, 1.0, 0); // Rotate the monkey head
-        world.addObject(boat);
-
-        // Add the Ruger model object with textures
-        gui.setLoadingProgress(0.8f, "Loading models...");
-        MeshObject ruger = new MeshObject("resources/models/Ruger/ruger.obj", true);
-        ruger.setPosition(-2.0f, 10.0f, 2.0f);
-        ruger.setScale(2.0f);
-        ruger.setAngularVelocity(0, 0.5, 0); // Rotate the gun
-        Appearance appearance = ruger.getAppearance();
-        Material material = appearance.getMaterial();
-        material.setAmbientColor(new Color3f(0.1f, 0.1f, 0.1f));
-        material.setDiffuseColor(new Color3f(0.8f, 0.8f, 0.8f));
-        material.setSpecularColor(new Color3f(1f, 1f, 1f));
-        material.setShininess(150.0f);
-        appearance.setMaterial(material);
-        ruger.setAppearance(appearance);
-        world.addObject(ruger);
-
-        MeshObject rock = new MeshObject("resources/models/Rock/fuckassRock.obj", true);
-        rock.setPosition(-8.0f, 60.0f, 8.0f);
-        rock.setScale(12.0f);
-        rock.setAngularVelocity(20, 35.5, -12); // Rotate the gun
-        world.addObject(rock);
 
         gui.setLoadingProgress(0.9f, "Setting up GUI...");
-        GuiText welcomeText = new GuiText(GuiCanvas.ARIAL, "Ohio Impressed", Vector2.ofScale(0.5f, 0.1f));
-        welcomeText.setPixelHeight(64f);
-        welcomeText.setColor(new Color(255, 200, 0));
-        welcomeText.setLetterSpacing(-2f);
-        gui.addText(welcomeText);
-
-        GuiFrame textBg = new GuiFrame(Vector2.ofScale(0.5f, 0.1f), Vector2.ofOffset(500, 100), new Color(0, 0, 0, 128));
-        textBg.setCentered(true);
-        textBg.setRotation(5.0); // Slightly rotated as requested
-        textBg.setBorderWidth(2f);
-        gui.addFrame(textBg);
-
-        GuiTexture crop = new GuiTexture("/gui/SreTransparentCrop.png");
-        crop.setCentered(true);
-        crop.setPosition(new Vector2(100f,0.1f,200f, 0.1f));
-        crop.setSize(Vector2.ofOffset(250f, 300f));
-        crop.setVisible(true);
-        gui.addTexture(crop);
-
-        GuiTexture joey = new GuiTexture("/gui/joey.png");
-        joey.setCentered(true);
-        joey.setPosition(new Vector2(100f,0.1f,200f, 0.5f));
-        joey.setSize(Vector2.ofOffset(250f, 250));
-        joey.setVisible(true);
-        gui.addTexture(joey);
 
         TextButton spawnSuzanne = new TextButton("Spawn Suzanne", Vector2.ofScale(0.15f, 0.9f), Vector2.ofOffset(200, 50));
         spawnSuzanne.addClickListener(btn -> {

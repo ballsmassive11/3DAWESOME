@@ -1,14 +1,15 @@
 package scripting;
 
+import gui.canvas.GuiCanvas;
 import org.python.util.PythonInterpreter;
 import world.World;
 
 public class ScriptRunner {
     private final PythonInterpreter interp;
 
-    public ScriptRunner(World world) {
+    public ScriptRunner(World world, GuiCanvas gui) {
         interp = new PythonInterpreter();
-        interp.set("game", new ModApi(world));
+        interp.set("game", new ModApi(world, gui));
     }
 
     public String runFile(String path) {

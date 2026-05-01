@@ -87,7 +87,7 @@ public class MapGenerator implements TerrainHeightProvider {
         // --- hills height: fewer octaves, higher gain → smoother, rounder hills ---
         hillsNoise = new FastNoiseLite();
         hillsNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        hillsNoise.SetFrequency(0.012f);
+        hillsNoise.SetFrequency(0.010f);
         hillsNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         hillsNoise.SetFractalOctaves(3);
         hillsNoise.SetFractalLacunarity(2.0f);
