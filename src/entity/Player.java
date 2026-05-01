@@ -49,11 +49,11 @@ public class Player extends Entity {
         camera.update(deltaTime);
 
         // 2. Determine whether the character should rotate this frame.
-        //    Shift-lock (when enabled + held) always rotates toward camera yaw.
+        //    Shift-lock (when enabled) always rotates toward camera yaw.
         //    Otherwise rotate only while actively moving; standing still freezes the model.
         double movYaw = camera.getMovementFacingYaw();
         boolean shouldRotate;
-        if (shiftLockEnabled && camera.isShiftHeld()) {
+        if (shiftLockEnabled) {
             targetYaw   = camera.getYaw();
             shouldRotate = true;
         } else if (!Double.isNaN(movYaw)) {

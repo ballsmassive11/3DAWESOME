@@ -48,7 +48,10 @@ public class CommandHandler {
             try {
                 double degrees = Double.parseDouble(parts[1]);
                 degrees = Math.max(10.0, Math.min(170.0, degrees));
-                renderer.setFov(Math.toRadians(degrees));
+                double rads = Math.toRadians(degrees);
+                renderer.setFov(rads);
+                GameSettings.fov = rads;
+                GameSettings.save();
                 hud.logOutput("FOV set to " + (int) degrees + "°");
             } catch (NumberFormatException ignored) {
                 hud.logOutput("Invalid value: " + parts[1]);
@@ -59,6 +62,8 @@ public class CommandHandler {
                 double distance = Double.parseDouble(parts[1]);
                 distance = Math.max(0.1, distance);
                 renderer.setRenderDistance(distance);
+                GameSettings.renderDistance = distance;
+                GameSettings.save();
                 hud.logOutput("Render distance set to " + distance);
             } catch (NumberFormatException ignored) {
                 hud.logOutput("Invalid value: " + parts[1]);
@@ -95,13 +100,16 @@ public class CommandHandler {
             String arg = parts.length == 2 ? parts[1].trim().toLowerCase() : "";
             if (arg.equals("on")) {
                 world.getPlayer().setShiftLockEnabled(true);
-                hud.logOutput("Shift lock ON — hold Shift to snap player to camera direction.");
+                renderer.updateShiftLockCursor();
+                hud.logOutput("Shift lock ON — mouse centered, player faces camera direction.");
             } else if (arg.equals("off")) {
                 world.getPlayer().setShiftLockEnabled(false);
+                renderer.updateShiftLockCursor();
                 hud.logOutput("Shift lock OFF — player faces movement direction.");
             } else {
                 boolean now = !world.getPlayer().isShiftLockEnabled();
                 world.getPlayer().setShiftLockEnabled(now);
+                renderer.updateShiftLockCursor();
                 hud.logOutput("Shift lock " + (now ? "ON" : "OFF"));
             }
 
@@ -114,12 +122,45 @@ public class CommandHandler {
                 hud.logOutput("Invalid value: " + parts[1]);
             }
 
+        } else if (cmd.equals("camoffset") && parts.length >= 2) {
+            try {
+                Camera cam = world.getCamera();
+                if (parts.length == 2) {
+                    // Usage: camoffset y
+                    double y = Double.parseDouble(parts[1]);
+                    cam.setOffset(0, y, 0);
+                    hud.logOutput("Camera offset set to (0, " + y + ", 0)");
+                } else if (parts.length == 4) {
+                    // Usage: camoffset x y z
+                    double x = Double.parseDouble(parts[1]);
+                    double y = Double.parseDouble(parts[2]);
+                    double z = Double.parseDouble(parts[3]);
+                    cam.setOffset(x, y, z);
+                    hud.logOutput("Camera offset set to (" + x + ", " + y + ", " + z + ")");
+                } else {
+                    hud.logOutput("Usage: camoffset <y> OR camoffset <x> <y> <z>");
+                }
+            } catch (NumberFormatException e) {
+                hud.logOutput("Invalid numeric values for camoffset");
+            }
+
         } else if (cmd.equals("movespeed") && parts.length == 2) {
             try {
                 double s = Double.parseDouble(parts[1]);
                 world.getPlayer().getCamera().setMoveSpeed(s);
                 world.getPlayer().getPhysics().setFlySpeed((float) s * 1.6f); // Affect fly speed too
                 hud.logOutput("Movement speed set to " + s);
+            } catch (NumberFormatException e) {
+                hud.logOutput("Invalid value: " + parts[1]);
+            }
+
+        } else if (cmd.equals("mousesens") && parts.length == 2) {
+            try {
+                double s = Double.parseDouble(parts[1]);
+                world.getCamera().setMouseSensitivity(s);
+                GameSettings.mouseSensitivity = s;
+                GameSettings.save();
+                hud.logOutput("Mouse sensitivity set to " + s);
             } catch (NumberFormatException e) {
                 hud.logOutput("Invalid value: " + parts[1]);
             }
@@ -132,6 +173,7 @@ public class CommandHandler {
                     int level = Integer.parseInt(parts[1]);
                     level = Math.max(1, Math.min(10, level));
                     GameSettings.quality = level;
+                    GameSettings.save();
                     hud.logOutput("Quality set to " + level + "/10");
                 } catch (NumberFormatException ignored) {
                     hud.logOutput("Usage: quality <1-10>");
@@ -150,9 +192,16 @@ public class CommandHandler {
                 obj.setAngularVelocity(vec);
             }
 
+        } else if (cmd.equals("reloadsettings")) {
+            GameSettings.load();
+            renderer.setFov(GameSettings.fov);
+            renderer.setRenderDistance(GameSettings.renderDistance);
+            world.getCamera().setMouseSensitivity(GameSettings.mouseSensitivity);
+            hud.logOutput("Settings reloaded from file.");
+
         } else if (cmd.equals("cmds") || cmd.equals("help")) {
             hud.logOutput("fly                     - Toggle flight (Space=up, Shift=down)");
-            hud.logOutput("shiftlock [on|off]      - Toggle shift lock (hold Shift to snap player rotation to camera)");
+            hud.logOutput("shiftlock [on|off]      - Toggle shift lock (mouse centered, player rotation follows camera)");
             hud.logOutput("fog on|off              - Toggle distance fog");
             hud.logOutput("fog <margin 0.01-1.0>   - Set fog transition width (fraction of rdist)");
             hud.logOutput("fog near <dist>         - Set fog start in world units");
@@ -173,7 +222,10 @@ public class CommandHandler {
             hud.logOutput("time pause|resume        - Pause or resume the day/night cycle");
             hud.logOutput("time speed <secs>       - Set cycle duration in seconds (default 120)");
             hud.logOutput("movespeed <val>             - Set movement speed");
+            hud.logOutput("mousesens <val>             - Set mouse sensitivity");
+            hud.logOutput("camoffset <y> | <x y z> - Set camera look-at offset");
             hud.logOutput("jumpheight <val>        - Set jump power");
+            hud.logOutput("reloadsettings          - Reload settings from game.properties");
             hud.logOutput("quality <1-10>          - Set game quality");
             hud.logOutput("fun                     - would recommend turning render distance down");
             hud.logOutput("cmds / help             - Show this message");

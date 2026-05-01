@@ -1,0 +1,14 @@
+# Blender 5.1.0 MTL File: 'None'
+# www.blender.org
+
+newmtl Plant1
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Plant1_Plant1_AlbedoTransparency.png
+map_Ns Plant1_Plant1_MetallicSmoothness.png
+map_refl Plant1_Plant1_MetallicSmoothness.png
+map_d Plant1_Plant1_AlbedoTransparency.png
+map_Bump -bm 1.000000 Plant1/Plant1_Plant1_Normal.png
