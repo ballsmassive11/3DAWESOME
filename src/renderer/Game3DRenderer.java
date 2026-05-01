@@ -9,6 +9,7 @@ import javax.media.j3d.*;
 import javax.vecmath.*;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 import com.sun.j3d.utils.universe.ViewingPlatform;
+import gui.overlay.PauseMenu;
 import gui.overlay.UnderwaterOverlay;
 import physics.AABB;
 import physics.TerrainHeightProvider;
@@ -61,6 +62,8 @@ public class Game3DRenderer {
     private final Set<Integer> zoomKeys = new HashSet<>();
 
     private boolean menuActive = false;
+    private PauseMenu pauseMenu;
+    private boolean pauseActive = false;
     private boolean hasDoneInitialLightUpdate = false;
 
     private boolean rightMouseDown = false;
@@ -97,17 +100,20 @@ public class Game3DRenderer {
         canvas.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (menuActive) {
-                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
+                if (menuActive) return;
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    boolean shift = (e.getModifiersEx() & KeyEvent.SHIFT_DOWN_MASK) != 0;
+                    if (shift) { System.exit(0); return; }
+                    togglePause();
                     return;
                 }
+                if (pauseActive) return;
                 CommandHud cmdHud = canvas.getCommandHud();
                 if (cmdHud.handleToggle(e.getKeyCode())) return;
                 if (cmdHud.isActive()) {
                     cmdHud.keyPressed(e.getKeyCode());
                     return;
                 }
-                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) System.exit(0);
                 if (e.getKeyCode() == KeyEvent.VK_F3) { canvas.toggleDebugPanel(); return; }
                 int kc = e.getKeyCode();
                 if (kc == KeyEvent.VK_SHIFT) {
@@ -427,6 +433,25 @@ public class Game3DRenderer {
     // -------------------------------------------------------------------------
     // Fog controls
     // -------------------------------------------------------------------------
+
+    public void togglePause() {
+        setPauseActive(!pauseActive);
+    }
+
+    public void setPauseActive(boolean active) {
+        pauseActive = active;
+        if (pauseMenu == null) {
+            pauseMenu = new PauseMenu();
+            pauseMenu.setOnResume(() -> setPauseActive(false));
+            canvas.addObject(pauseMenu);
+        }
+        pauseMenu.setVisible(active);
+        if (active) {
+            canvas.setCursor(Cursor.getDefaultCursor());
+        } else {
+            updateShiftLockCursor();
+        }
+    }
 
     public void setMenuActive(boolean active) {
         this.menuActive = active;

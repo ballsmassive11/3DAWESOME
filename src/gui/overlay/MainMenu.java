@@ -23,6 +23,7 @@ public class MainMenu extends GuiObject {
     private final GuiText title;
     private final TextButton createWorldBtn;
     private final TextButton controlsBtn;
+    private final TextButton quitBtn;
 
     // Controls view
     private final GuiFrame controlsBg;
@@ -45,6 +46,7 @@ public class MainMenu extends GuiObject {
         // Main menu buttons
         createWorldBtn = new TextButton("Create World", Vector2.ofScale(0.5f, 0.50f), Vector2.ofOffset(260, 60));
         controlsBtn    = new TextButton("Controls",     Vector2.ofScale(0.5f, 0.62f), Vector2.ofOffset(260, 60));
+        quitBtn        = new TextButton("Quit",         Vector2.ofScale(0.5f, 0.74f), Vector2.ofOffset(260, 60));
 
         createWorldBtn.setTextHeight(50);
         createWorldBtn.setTextLetterSpacing(-6f);
@@ -83,6 +85,7 @@ public class MainMenu extends GuiObject {
         createWorldBtn.addClickListener(btn -> { if (onCreateWorld != null) onCreateWorld.run(); });
         controlsBtn.addClickListener(btn -> showingControls = true);
         backBtn.addClickListener(btn -> showingControls = false);
+        quitBtn.addClickListener(btn -> System.exit(0));
     }
 
     /** Called when the user clicks "Create World". */
@@ -112,6 +115,7 @@ public class MainMenu extends GuiObject {
             title.draw(g2d, screenWidth, screenHeight);
             createWorldBtn.draw(g2d, screenWidth, screenHeight);
             controlsBtn.draw(g2d, screenWidth, screenHeight);
+            quitBtn.draw(g2d, screenWidth, screenHeight);
         }
     }
 
@@ -124,6 +128,7 @@ public class MainMenu extends GuiObject {
         } else {
             createWorldBtn.handleMouseEvent(e, screenWidth, screenHeight);
             controlsBtn.handleMouseEvent(e, screenWidth, screenHeight);
+            quitBtn.handleMouseEvent(e, screenWidth, screenHeight);
         }
 
         return true; // Consume all events while menu is open
