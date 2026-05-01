@@ -7,6 +7,7 @@ import objects.Brick;
 import objects.Cube;
 import objects.MeshObject;
 import physics.AABB;
+import scripting.ScriptRunner;
 import terrain.MapGenerator;
 import world.Camera;
 import world.GameSettings;
@@ -25,10 +26,16 @@ import java.util.Map;
 public class CommandHandler {
     private final World world;
     private final Game3DRenderer renderer;
+    private ScriptRunner scriptRunner;
 
     public CommandHandler(World world, Game3DRenderer renderer) {
         this.world = world;
         this.renderer = renderer;
+    }
+
+    private ScriptRunner scripts() {
+        if (scriptRunner == null) scriptRunner = new ScriptRunner(world);
+        return scriptRunner;
     }
 
     public void handle(String text) {
@@ -192,6 +199,10 @@ public class CommandHandler {
                 obj.setAngularVelocity(vec);
             }
 
+        } else if (cmd.equals("script") && parts.length == 2) {
+            String err = scripts().runFile(parts[1].trim());
+            hud.logOutput(err == null ? "script ok" : "script error: " + err);
+
         } else if (cmd.equals("reloadsettings")) {
             GameSettings.load();
             renderer.setFov(GameSettings.fov);
@@ -227,6 +238,7 @@ public class CommandHandler {
             hud.logOutput("jumpheight <val>        - Set jump power");
             hud.logOutput("reloadsettings          - Reload settings from game.properties");
             hud.logOutput("quality <1-10>          - Set game quality");
+            hud.logOutput("script <path>           - Run a Jython mod script (exposes `game` API)");
             hud.logOutput("fun                     - would recommend turning render distance down");
             hud.logOutput("cmds / help             - Show this message");
 
