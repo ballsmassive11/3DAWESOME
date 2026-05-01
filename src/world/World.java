@@ -9,6 +9,7 @@ import particles.ParticleEmitter;
 import particles.ParticleRenderer;
 import physics.AABB;
 import physics.TerrainHeightProvider;
+import terrain.ChunkManager;
 import water.WaterTile;
 
 import javax.media.j3d.*;
@@ -30,6 +31,9 @@ public class World {
 
     private final BranchGroup sceneBranchGroup;
     private final OrderedGroup rootOrderedGroup;
+    /** Dedicated sub-group for water tiles, always the first child of rootOrderedGroup.
+     *  Water tiles are appended here via addChild to avoid index-shifting in the OrderedGroup. */
+    private final Group waterGroup;
     private boolean lightsAdded = false;
     private Color3f backgroundColor;
     private final Lighting lighting;
@@ -37,6 +41,9 @@ public class World {
     private boolean hitboxesVisible = false;
     private int seed = 0;
     private boolean physicsEnabled = true;
+
+    private ChunkManager chunkManager;
+    private WorldBorder  worldBorder;
 
     public World() {
         this.sceneBranchGroup = new BranchGroup();
@@ -48,9 +55,20 @@ public class World {
         this.rootOrderedGroup.setCapability(Group.ALLOW_CHILDREN_WRITE);
         this.sceneBranchGroup.addChild(rootOrderedGroup);
 
+        // Water tiles render before opaque geometry; a stable sub-group avoids
+        // shifting OrderedGroup child indices when new tiles are added.
+        this.waterGroup = new Group();
+        this.waterGroup.setCapability(Group.ALLOW_CHILDREN_EXTEND);
+        this.waterGroup.setCapability(Group.ALLOW_CHILDREN_WRITE);
+        this.rootOrderedGroup.addChild(waterGroup);
+
         this.backgroundColor = new Color3f(0.8f, 0.8f, 0.9f);
         this.player  = new Player();
         this.lighting = new Lighting();
+
+
+        // Give player a point light
+        addPointLight(player.getPointLight());
     }
 
     // ------------------------------------------------------------------
@@ -60,7 +78,7 @@ public class World {
     public void addObject(BaseObject object) {
         objects.add(object);
         if (object instanceof WaterTile) {
-            rootOrderedGroup.insertChild(object.getBranchGroup(), 0);
+            waterGroup.addChild(object.getBranchGroup());
         } else {
             rootOrderedGroup.addChild(object.getBranchGroup());
         }
@@ -72,7 +90,38 @@ public class World {
         objects.remove(object);
     }
 
+    /**
+     * Adds a pre-built BranchGroup directly to the main scene without tracking it in the
+     * objects list.  Use for chunk-level scene groups that bundle multiple objects together.
+     */
+    public void addSceneGroup(BranchGroup group) {
+        rootOrderedGroup.addChild(group);
+    }
+
+    /**
+     * Registers an object for collision and hitbox tracking without attaching it to the
+     * scene graph.  Use when the object's node is already inside a group added via
+     * {@link #addSceneGroup}.
+     */
+    public void registerForCollision(BaseObject object) {
+        objects.add(object);
+        object.setHitboxVisible(hitboxesVisible);
+    }
+
+    /**
+     * Removes a collision registration without detaching the object's scene node.
+     * Use when the parent scene group handles detachment (e.g., chunkSceneBG.detach()).
+     */
+    public void unregisterFromCollision(BaseObject object) {
+        objects.remove(object);
+    }
+
     public void clearObjects() {
+        // Shut down chunk manager first: removes chunks from scene and kills executor threads.
+        if (chunkManager != null) {
+            chunkManager.shutdown();
+        }
+
         MeshObject playerModel = player.getModel();
         // Use a temporary list to avoid issues if needed, but CopyOnWriteArrayList is safe here
         for (BaseObject obj : objects) {
@@ -81,8 +130,16 @@ public class World {
         objects.clear();
         for (BranchGroup lg : lightNodes) lg.detach();
         lightNodes.clear();
+        emitters.clear();
         player.setTerrainProvider(null);
+
+        // Re-add player light after clearing
+        addPointLight(player.getPointLight());
+
         for (Entity e : entities) e.setTerrainProvider(null);
+        entities.clear();
+        worldBorder  = null;
+        chunkManager = null;
         // Keep the player model in the scene and tracked in the object list
         if (playerModel != null) objects.add(playerModel);
     }
@@ -180,6 +237,29 @@ public class World {
     }
 
     // ------------------------------------------------------------------
+    // Chunk manager
+    // ------------------------------------------------------------------
+
+    /**
+     * Replaces the active chunk manager.  If one already exists it is shut down first.
+     */
+    public void setChunkManager(ChunkManager cm) {
+        if (chunkManager != null && chunkManager != cm) {
+            chunkManager.shutdown();
+        }
+        chunkManager = cm;
+    }
+
+    public ChunkManager getChunkManager() { return chunkManager; }
+
+    // ------------------------------------------------------------------
+    // World border
+    // ------------------------------------------------------------------
+
+    public void setWorldBorder(WorldBorder border) { this.worldBorder = border; }
+    public WorldBorder getWorldBorder()            { return worldBorder; }
+
+    // ------------------------------------------------------------------
     // Hitboxes
     // ------------------------------------------------------------------
 
@@ -211,6 +291,11 @@ public class World {
     // ------------------------------------------------------------------
 
     public void update(double deltaTime) {
+        // Stream new terrain chunks and unload distant ones.
+        if (chunkManager != null) {
+            chunkManager.update(player.getPosition());
+        }
+
         // Update all static objects (animations like rotation)
         for (BaseObject obj : objects) {
             obj.update(deltaTime);
@@ -227,6 +312,11 @@ public class World {
 
         // Update player (input → movement → physics → model sync)
         player.update(deltaTime, collidables);
+
+        // Enforce world border: clamp player XZ inside the boundary.
+        if (worldBorder != null) {
+            worldBorder.enforce(player.getPosition());
+        }
 
         // Update all other entities
         for (Entity e : entities) {
@@ -281,8 +371,9 @@ public class World {
     public BranchGroup getSceneBranchGroup() {
         if (!lightsAdded) {
             lighting.addToScene(sceneBranchGroup);
-            // Add particles to rootOrderedGroup so they render after world objects
-            rootOrderedGroup.addChild(particleRenderer.getBranchGroup());
+            // Particles live outside the OrderedGroup so Java3D's transparency
+            // pipeline renders them after all opaque geometry automatically.
+            sceneBranchGroup.addChild(particleRenderer.getBranchGroup());
             lightsAdded = true;
         }
         return sceneBranchGroup;

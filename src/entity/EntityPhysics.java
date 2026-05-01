@@ -21,8 +21,8 @@ public class EntityPhysics {
 
     public static final float EYE_HEIGHT    = 1.7f;
     public static final float ENTITY_RADIUS = 0.35f;
-    public static final float JUMP_SPEED    = 9.0f;
-    public static final float FLY_SPEED     = 8.0f;
+    private float jumpSpeed = 9.0f;
+    private float flySpeed  = 8.0f;
 
     public static final Pillbox ENTITY_SHAPE = new Pillbox(ENTITY_RADIUS, EYE_HEIGHT);
 
@@ -66,7 +66,7 @@ public class EntityPhysics {
         float curZ = (float) position.z;
 
         if (flying) {
-            position.y += FLY_SPEED * verticalInput * deltaTime;
+            position.y += flySpeed * verticalInput * deltaTime;
             velocityY   = 0f;
             onGround    = false;
             prevX = curX;
@@ -97,7 +97,7 @@ public class EntityPhysics {
         float eyeFloor = terrainY + EYE_HEIGHT;
 
         if (jumpRequested && onGround) {
-            velocityY = JUMP_SPEED;
+            velocityY = jumpSpeed;
             onGround  = false;
         }
 
@@ -204,4 +204,10 @@ public class EntityPhysics {
         this.velocityY = 0f;
         this.onGround  = false;
     }
+
+    public float getJumpSpeed() { return jumpSpeed; }
+    public void setJumpSpeed(float jumpSpeed) { this.jumpSpeed = jumpSpeed; }
+
+    public float getFlySpeed() { return flySpeed; }
+    public void setFlySpeed(float flySpeed) { this.flySpeed = flySpeed; }
 }

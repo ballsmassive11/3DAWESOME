@@ -105,6 +105,9 @@ public class Camera {
         return 0.0f;
     }
 
+    public void setMoveSpeed(double moveSpeed) { this.moveSpeed = moveSpeed; }
+    public double getMoveSpeed() { return moveSpeed; }
+
     public void keyPressed(int keyCode) {
         activeKeys.add(keyCode);
         if (keyCode == KeyEvent.VK_SPACE) jumpRequested = true;

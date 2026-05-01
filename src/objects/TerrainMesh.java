@@ -17,7 +17,7 @@ import javax.vecmath.*;
 public class TerrainMesh extends BaseObject {
 
     private final float[]   heights;  // local chunk heights, row-major
-    private final Color4f[] colors;   // local chunk colors
+    private final float[]   colors;   // local chunk colors (RGBA)
     private final int rows;           // chunk row count
     private final int cols;           // chunk column count
     private final float cellSize;
@@ -26,13 +26,48 @@ public class TerrainMesh extends BaseObject {
     private final int   r0, c0;
     private final float totalRows, totalCols; // stored as float to avoid repeated casts
 
+    // When true, vertex local positions start at 0 (chunk-origin mode).
+    // The object's TransformGroup is positioned at worldOriginX/Z.
+    private final boolean chunkOrigin;
+
     // ------------------------------------------------------------------
     // Constructors
     // ------------------------------------------------------------------
 
     /** Full-grid constructor (original behaviour, unchanged). */
-    public TerrainMesh(float[] heights, Color4f[] colors, int rows, int cols, float cellSize) {
+    public TerrainMesh(float[] heights, float[] colors, int rows, int cols, float cellSize) {
         this(heights, colors, rows, cols, 0, 0, rows, cols, cellSize);
+    }
+
+
+    /**
+     * Standalone chunk constructor.
+     * <p>
+     * Builds a {@code rows × cols} terrain mesh whose vertex (r, c) sits at
+     * local position {@code (c * cellSize, heights[r*cols+c], r * cellSize)}.
+     * The object's world position is set to {@code (worldOriginX, 0, worldOriginZ)}
+     * so that its (0,0) vertex lands at that exact world coordinate.
+     * <p>
+     * Adjacent chunks created with matching {@code worldOriginX/Z} offsets share
+     * the same border vertex positions and therefore tile seamlessly.
+     */
+    public TerrainMesh(float[] heights, float[] colors,
+                       int rows, int cols,
+                       float cellSize,
+                       float worldOriginX, float worldOriginZ) {
+        super();
+        this.r0        = 0;
+        this.c0        = 0;
+        this.rows      = rows;
+        this.cols      = cols;
+        this.cellSize  = cellSize;
+        this.totalRows = 0;   // signals chunk-origin mode (positions start at 0, not centred)
+        this.totalCols = 0;
+        this.chunkOrigin = true;
+
+        this.heights = heights.clone();
+        this.colors  = colors.clone();
+        setPosition(worldOriginX, 0, worldOriginZ);
     }
 
     /**
@@ -41,26 +76,32 @@ public class TerrainMesh extends BaseObject {
      * within a full grid of {@code totalRows × totalCols}, preserving the same world-space
      * vertex positions as if the full terrain were built in one piece.
      */
-    public TerrainMesh(float[] heights, Color4f[] colors,
+    public TerrainMesh(float[] heights, float[] colors,
                        int totalRows, int totalCols,
                        int r0, int c0, int chunkRows, int chunkCols,
                        float cellSize) {
         super();
-        this.r0        = r0;
-        this.c0        = c0;
-        this.rows      = chunkRows;
-        this.cols      = chunkCols;
-        this.cellSize  = cellSize;
-        this.totalRows = totalRows;
-        this.totalCols = totalCols;
+        this.r0          = r0;
+        this.c0          = c0;
+        this.rows        = chunkRows;
+        this.cols        = chunkCols;
+        this.cellSize    = cellSize;
+        this.totalRows   = totalRows;
+        this.totalCols   = totalCols;
+        this.chunkOrigin = false;
 
         // Copy the subregion so this chunk owns its own data
-        this.heights = new float  [chunkRows * chunkCols];
-        this.colors  = new Color4f[chunkRows * chunkCols];
+        this.heights = new float[chunkRows * chunkCols];
+        this.colors  = new float[chunkRows * chunkCols * 4];
         for (int r = 0; r < chunkRows; r++) {
             for (int c = 0; c < chunkCols; c++) {
-                this.heights[r * chunkCols + c] = heights[(r0 + r) * totalCols + (c0 + c)];
-                this.colors [r * chunkCols + c] = colors [(r0 + r) * totalCols + (c0 + c)];
+                int localIdx = r * chunkCols + c;
+                int worldIdx = (r0 + r) * totalCols + (c0 + c);
+                this.heights[localIdx] = heights[worldIdx];
+                this.colors [localIdx * 4    ] = colors [worldIdx * 4    ];
+                this.colors [localIdx * 4 + 1] = colors [worldIdx * 4 + 1];
+                this.colors [localIdx * 4 + 2] = colors [worldIdx * 4 + 2];
+                this.colors [localIdx * 4 + 3] = colors [worldIdx * 4 + 3];
             }
         }
     }
@@ -74,18 +115,26 @@ public class TerrainMesh extends BaseObject {
         int vertCount  = rows * cols;
         int indexCount = (rows - 1) * (cols - 1) * 6; // 2 triangles × 3 indices per cell
 
-        // Build vertex positions using full-grid centering so chunks tile seamlessly
-        Point3f[] positions = new Point3f[vertCount];
+        // Use flat float[] to avoid allocating a Point3f/Vector3f/TexCoord2f per vertex
+        float[] posArr = new float[vertCount * 3];
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                float x = (c0 + c - totalCols / 2f) * cellSize;
-                float z = (r0 + r - totalRows / 2f) * cellSize;
-                float y = heights[r * cols + c];
-                positions[r * cols + c] = new Point3f(x, y, z);
+                int vi = (r * cols + c) * 3;
+                if (chunkOrigin) {
+                    // Chunk-origin mode: local positions start at (0,0).
+                    // TransformGroup handles world placement via setPosition(worldOriginX, 0, worldOriginZ).
+                    posArr[vi    ] = c * cellSize;
+                    posArr[vi + 1] = heights[r * cols + c];
+                    posArr[vi + 2] = r * cellSize;
+                } else {
+                    posArr[vi    ] = (c0 + c - totalCols / 2f) * cellSize;
+                    posArr[vi + 1] = heights[r * cols + c];
+                    posArr[vi + 2] = (r0 + r - totalRows / 2f) * cellSize;
+                }
             }
         }
 
-        Vector3f[] normals = computeNormals(positions);
+        float[] normArr = computeNormals(posArr);
 
         //   tl --- tr
         //   |  \   |
@@ -104,24 +153,23 @@ public class TerrainMesh extends BaseObject {
             }
         }
 
-        final float texTileSize = 4.0f;
-        TexCoord2f[] texCoords = new TexCoord2f[vertCount];
+        final float invTile = 1.0f / 4.0f;
+        float[] texArr = new float[vertCount * 2];
         for (int i = 0; i < vertCount; i++) {
-            texCoords[i] = new TexCoord2f(
-                    positions[i].x / texTileSize,
-                    positions[i].z / texTileSize);
+            texArr[i * 2    ] = posArr[i * 3    ] * invTile; // x / tileSize
+            texArr[i * 2 + 1] = posArr[i * 3 + 2] * invTile; // z / tileSize
         }
 
         IndexedTriangleArray geom = new IndexedTriangleArray(
                 vertCount,
                 GeometryArray.COORDINATES | GeometryArray.NORMALS | GeometryArray.COLOR_4
-                        | GeometryArray.TEXTURE_COORDINATE_2,
+                        | GeometryArray.TEXTURE_COORDINATE_2 | GeometryArray.BY_REFERENCE,
                 indexCount
         );
-        geom.setCoordinates(0, positions);
-        geom.setNormals(0, normals);
-        geom.setColors(0, colors);
-        geom.setTextureCoordinates(0, 0, texCoords);
+        geom.setCoordRefFloat(posArr);
+        geom.setNormalRefFloat(normArr);
+        geom.setColorRefFloat(colors);
+        geom.setTexCoordRefFloat(0, texArr);
         geom.setCoordinateIndices(0, indices);
         geom.setNormalIndices(0, indices);
         geom.setColorIndices(0, indices);
@@ -131,12 +179,12 @@ public class TerrainMesh extends BaseObject {
     }
 
     // ------------------------------------------------------------------
-    // Normal computation
+    // Normal computation — uses flat float[] to avoid per-triangle allocation
     // ------------------------------------------------------------------
 
-    private Vector3f[] computeNormals(Point3f[] positions) {
-        Vector3f[] normals = new Vector3f[positions.length];
-        for (int i = 0; i < normals.length; i++) normals[i] = new Vector3f(0f, 0f, 0f);
+    private float[] computeNormals(float[] posArr) {
+        int vertCount = rows * cols;
+        float[] normArr = new float[vertCount * 3]; // zero-initialized
 
         for (int r = 0; r < rows - 1; r++) {
             for (int c = 0; c < cols - 1; c++) {
@@ -145,27 +193,37 @@ public class TerrainMesh extends BaseObject {
                 int bl = (r + 1) * cols + c;
                 int br = (r + 1) * cols + (c + 1);
 
-                Vector3f n1 = faceNormal(positions[tl], positions[bl], positions[tr]);
-                normals[tl].add(n1); normals[bl].add(n1); normals[tr].add(n1);
+                // Inline face normal for tri1: tl, bl, tr (avoids new Vector3f per call)
+                int ai = tl * 3, bi = bl * 3, ci = tr * 3;
+                float abx = posArr[bi]-posArr[ai], aby = posArr[bi+1]-posArr[ai+1], abz = posArr[bi+2]-posArr[ai+2];
+                float acx = posArr[ci]-posArr[ai], acy = posArr[ci+1]-posArr[ai+1], acz = posArr[ci+2]-posArr[ai+2];
+                float n1x = aby*acz - abz*acy, n1y = abz*acx - abx*acz, n1z = abx*acy - aby*acx;
+                normArr[ai]  +=n1x; normArr[ai+1]+=n1y; normArr[ai+2]+=n1z;
+                normArr[bi]  +=n1x; normArr[bi+1]+=n1y; normArr[bi+2]+=n1z;
+                normArr[ci]  +=n1x; normArr[ci+1]+=n1y; normArr[ci+2]+=n1z;
 
-                Vector3f n2 = faceNormal(positions[tr], positions[bl], positions[br]);
-                normals[tr].add(n2); normals[bl].add(n2); normals[br].add(n2);
+                // Inline face normal for tri2: tr, bl, br
+                ai = tr * 3; bi = bl * 3; ci = br * 3;
+                abx = posArr[bi]-posArr[ai]; aby = posArr[bi+1]-posArr[ai+1]; abz = posArr[bi+2]-posArr[ai+2];
+                acx = posArr[ci]-posArr[ai]; acy = posArr[ci+1]-posArr[ai+1]; acz = posArr[ci+2]-posArr[ai+2];
+                float n2x = aby*acz - abz*acy, n2y = abz*acx - abx*acz, n2z = abx*acy - aby*acx;
+                normArr[ai]  +=n2x; normArr[ai+1]+=n2y; normArr[ai+2]+=n2z;
+                normArr[bi]  +=n2x; normArr[bi+1]+=n2y; normArr[bi+2]+=n2z;
+                normArr[ci]  +=n2x; normArr[ci+1]+=n2y; normArr[ci+2]+=n2z;
             }
         }
 
-        for (Vector3f n : normals) {
-            if (n.lengthSquared() > 0f) n.normalize();
-            else                        n.set(0f, 1f, 0f);
+        for (int i = 0; i < vertCount; i++) {
+            int vi = i * 3;
+            float nx = normArr[vi], ny = normArr[vi+1], nz = normArr[vi+2];
+            float len2 = nx*nx + ny*ny + nz*nz;
+            if (len2 > 0f) {
+                float inv = 1f / (float) Math.sqrt(len2);
+                normArr[vi] = nx*inv; normArr[vi+1] = ny*inv; normArr[vi+2] = nz*inv;
+            } else {
+                normArr[vi+1] = 1f; // default up
+            }
         }
-        return normals;
-    }
-
-    private static Vector3f faceNormal(Point3f a, Point3f b, Point3f c) {
-        float abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
-        float acx = c.x - a.x, acy = c.y - a.y, acz = c.z - a.z;
-        return new Vector3f(
-                aby * acz - abz * acy,
-                abz * acx - abx * acz,
-                abx * acy - aby * acx);
+        return normArr;
     }
 }

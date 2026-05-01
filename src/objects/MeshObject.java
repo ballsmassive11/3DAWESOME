@@ -175,15 +175,18 @@ public class MeshObject extends BaseObject {
 
     @Override
     public BranchGroup getBranchGroup() {
-        if (modelRoot != null) {
-            if (modelRoot.getParent() != null) {
-                modelRoot.detach();
+        if (!geometryBuilt) {
+            if (modelRoot != null) {
+                if (modelRoot.getParent() != null) {
+                    modelRoot.detach();
+                }
+                transformGroup.addChild(modelRoot);
             }
-            transformGroup.addChild(modelRoot);
+            branchGroup.addChild(transformGroup);
+            addHitboxWireframe();
+            updateTransform();
+            geometryBuilt = true;
         }
-        branchGroup.addChild(transformGroup);
-        addHitboxWireframe();
-        updateTransform();
         return branchGroup;
     }
 

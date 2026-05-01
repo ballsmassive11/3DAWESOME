@@ -19,6 +19,11 @@ public class WorldUpdateBehavior extends Behavior {
     private long lastTime;
     private Game3DRenderer renderer;
     private double totalTime = 0.0;
+    
+    private double fpsAccumulator = 0;
+    private int fpsFrameCount = 0;
+    private double lastFpsUpdateTime = 0;
+    private double currentFps = 0;
 
     public WorldUpdateBehavior(World world) {
         this(world, null);
@@ -51,9 +56,19 @@ public class WorldUpdateBehavior extends Behavior {
 
         if (renderer != null) {
             renderer.syncCamera(deltaTime);
-            double fps = deltaTime > 0 ? 1.0 / deltaTime : 0;
+            
+            fpsAccumulator += deltaTime;
+            fpsFrameCount++;
+            
+            if (totalTime - lastFpsUpdateTime >= 0.1) {
+                currentFps = fpsFrameCount / (totalTime - lastFpsUpdateTime);
+                fpsAccumulator = 0;
+                fpsFrameCount = 0;
+                lastFpsUpdateTime = totalTime;
+            }
+
             Camera cam = world.getCamera();
-            renderer.updateHud(fps,
+            renderer.updateHud(currentFps,
                     cam.getPosition().x, cam.getPosition().y, cam.getPosition().z,
                     cam.getYaw(), cam.getPitch(),
                     world.getObjects().size(),

@@ -33,7 +33,7 @@ public class LoadingScreen extends GuiObject {
         background = new GuiFrame(Vector2.ofScale(0.5f, 0.5f), Vector2.ofScale(1.0f, 1.0f), new Color(15, 15, 15));
         background.setCentered(true);
 
-        face = new GuiTexture("/gui/scaredsre.png");
+        face = new GuiTexture("/gui/happyhappyhappy.png");
         face.setCentered(true);
         face.setPosition(new Vector2(-200f,1f,0f, 0.5f));
         face.setSize(Vector2.ofOffset(250f, 250));
