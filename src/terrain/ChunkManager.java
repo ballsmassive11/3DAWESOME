@@ -349,9 +349,9 @@ public class ChunkManager {
                 } else if (biome.equals("Steppe")) {
                     density = 0.005f;
                 } else if (biome.equals("Mountain")) {
-                    density = 0.008f;
+                    density = 0.004f;
                 } else if (biome.equals("Tundra")) {
-                    density = 0.002f;
+                    density = 0.001f;
                 }
 
                 if (density == 0 || rng.nextFloat() > density) continue;
@@ -399,7 +399,7 @@ public class ChunkManager {
                 } else if (biome.equals("Steppe")) { // Meadow
                     density = BUSH_DENSITY_MEADOW;
                 } else if (biome.equals("Tundra")) {
-                    density = BUSH_DENSITY_STEPPE;
+                    density = BUSH_DENSITY_STEPPE * 0.5f;
                 }
 
                 if (density == 0 || rng.nextFloat() > density) continue;

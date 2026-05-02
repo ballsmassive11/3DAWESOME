@@ -91,10 +91,12 @@ public class CommandHud extends GuiObject {
     // -----------------------------------------------------------------------
 
     public boolean handleToggle(int keyCode) {
-        if (!active && keyCode == TOGGLE_KEY) {
-            active = true;
+        if (keyCode == TOGGLE_KEY) {
+            active = !active;
             suppressNextKeyTyped = true;
-            inputBuffer.setLength(0);
+            if (active) {
+                inputBuffer.setLength(0);
+            }
             return true;
         }
         return false;

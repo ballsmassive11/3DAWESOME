@@ -26,12 +26,17 @@ public class ModApi {
     // World
     // ------------------------------------------------------------------
 
+    //public void setFogMargin(int margin) {world.get;
+
     public void setPlayerModel(String path) {
         world.setPlayerModel(path);
     }
 
     public void setMoveSpeed(double speed) {
         world.getCamera().setMoveSpeed(speed);
+    }
+
+    public void setFly(boolean fly) {world.getPlayer().getPhysics().setFlying(fly);
     }
 
     // ------------------------------------------------------------------

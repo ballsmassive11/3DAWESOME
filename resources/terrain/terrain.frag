@@ -29,7 +29,8 @@ void main() {
     }
 
     // Biome-specific variations
-    vec4 tundraColor = mix(snow, rock, clamp(t * 0.4, 0.0, 1.0)); // Cold: mostly snow, slight rock at higher elevations
+    // Tundra/Cold: snow at low blendT (plains), transitioning to rock at higher blendT (slopes)
+    vec4 tundraColor = mix(snow, rock, clamp(t * 2.0, 0.0, 1.0)); 
     vec4 desertColor = mix(sand, rock, clamp(t * 0.5, 0.0, 1.0)); // Hot/Dry: mostly sand
     vec4 forestColor = mix(grass, rock, clamp(t, 0.0, 1.0));      // Wet: mostly grass
 

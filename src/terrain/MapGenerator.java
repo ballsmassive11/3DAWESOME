@@ -87,7 +87,7 @@ public class MapGenerator implements TerrainHeightProvider {
         // --- hills height: fewer octaves, higher gain → smoother, rounder hills ---
         hillsNoise = new FastNoiseLite();
         hillsNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        hillsNoise.SetFrequency(0.010f);
+        hillsNoise.SetFrequency(0.008f);
         hillsNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         hillsNoise.SetFractalOctaves(3);
         hillsNoise.SetFractalLacunarity(2.0f);
@@ -261,11 +261,12 @@ public class MapGenerator implements TerrainHeightProvider {
                     // Snowy Peaks: 100% R (Tundra/Snow)
                     rWeight = 1.0f;
                 } else if (altVal > 0.45f) {
-                    // Mountain: Steppe (0,0,0) -> shader will use rock/snow mix based on blendT
+                    // Mountain: Also cold/rocky, use Tundra weights
+                    rWeight = 1.0f;
                 } else if (temp < 0.3f) {
                     // Tundra: 100% R (Cold)
                     rWeight = 1.0f;
-                } else if (temp > 0.7f && moisture < 0.3f) {
+                } else if (temp > 0.3f && moisture < 0.6f) {
                     // Desert: 100% G (Hot and Dry)
                     gWeight = 1.0f;
                 } else if (moisture > 0.6f) {
@@ -424,7 +425,7 @@ public class MapGenerator implements TerrainHeightProvider {
         if (altVal > 0.7f)          return "Snowy Peaks";
         if (altVal > 0.45f)         return "Mountain";
         if (temp < 0.3f)            return "Tundra";
-        if (temp > 0.7f && moisture < 0.3f) return "Desert";
+        if (temp > 0.3f && moisture < 0.6f) return "Desert";
         if (moisture > 0.6f)        return "Forest";
 
         return "Steppe";
