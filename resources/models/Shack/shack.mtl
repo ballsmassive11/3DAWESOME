@@ -1,0 +1,70 @@
+# Blender 5.1.0 MTL File: 'shack.blend'
+# www.blender.org
+
+newmtl Door
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd Door_albedo.jpg
+map_Ns Door_roughness.jpg
+map_Bump -bm 1.000000 Door_normal.jpg
+
+newmtl Down
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd Down_albedo.jpg
+map_Ns Down_roughness.jpg
+map_refl Down_metallic.jpg
+map_Bump -bm 1.000000 Down_normal.jpg
+
+newmtl Kozirek
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd Kozirek_albedo.jpg
+map_Ns Kozirek_roughness.jpg
+map_refl Kozirek_metallic.jpg
+map_Bump -bm 1.000000 Kozirek_normal.jpg
+
+newmtl Material_#2143883280
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd Material__2143883280_albedo.jpg
+map_Ns Material__2143883280_roughness.jpg
+map_Bump -bm 1.000000 Material__2143883280_normal.jpg
+
+newmtl Shifer
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd Shifer_albedo.jpg
+map_Ns Shifer_roughness.jpg
+map_Bump -bm 1.000000 Shifer_normal.jpg
+
+newmtl Top
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd Top_albedo.jpg
+map_Ns Top_roughness.jpg
+map_Bump -bm 1.000000 Top_normal.jpg

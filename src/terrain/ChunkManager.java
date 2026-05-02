@@ -3,6 +3,7 @@ package terrain;
 import entity.EntityPhysics;
 import entity.Guy;
 import objects.MeshObject;
+import objects.StreetLamp;
 import objects.TerrainMesh;
 import particles.ParticleEmitter;
 import physics.AABB;
@@ -240,6 +241,13 @@ public class ChunkManager {
             for (MeshObject t : trees) chunkSceneBG.addChild(t.getBranchGroup());
             for (MeshObject b : bushes) chunkSceneBG.addChild(b.getBranchGroup());
 
+            VillageData village = buildVillage(coord, wx0, wz0, n, heights, generator);
+            for (MeshObject s : village.shacks) {
+                s.getBranchGroup(); // trigger OBJ load on background thread
+                chunkSceneBG.addChild(s.getBranchGroup());
+            }
+            for (StreetLamp lamp : village.lamps) lamp.addToGroup(chunkSceneBG);
+
             // Pre-set explicit bounds so Java3D does not need to traverse every vertex
             // in the subtree when this group is addChild'd to the live scene graph.
             // Bounds are computed here on the background thread instead.
@@ -327,6 +335,20 @@ public class ChunkManager {
     private static final float  BUSH_DENSITY_STEPPE = 0.008f;
     private static final double BUSH_SCALE_MIN = 1.5;
     private static final double BUSH_SCALE_MAX = 2.2;
+
+    // -----------------------------------------------------------------------
+    // Village constants
+    // -----------------------------------------------------------------------
+
+    private static final String SHACK_PATH         = "resources/models/Shack/shack.obj";
+    /** Fraction of steppe chunks that spawn a village (~1 in 12). */
+    private static final float  VILLAGE_PROBABILITY = 0.07f;
+    /** Radius around village center within which shacks are scattered. */
+    private static final float  VILLAGE_RADIUS      = 30.0f;
+    private static final int    SHACK_MIN           = 5;
+    private static final int    SHACK_MAX           = 10;
+    private static final double SHACK_SCALE_MIN     = 1.0;
+    private static final double SHACK_SCALE_MAX     = 4.8;
 
     private static List<MeshObject> buildTrees(ChunkCoord coord,
                                                 float wx0, float wz0, int n,
@@ -448,6 +470,72 @@ public class ChunkManager {
     }
 
     // -----------------------------------------------------------------------
+    // Internal: village generation
+    // -----------------------------------------------------------------------
+
+    private static VillageData buildVillage(ChunkCoord coord,
+                                             float wx0, float wz0, int n,
+                                             float[] heights, MapGenerator generator) {
+        long seed = ((long) coord.x * 0xABCDEF01L) ^ ((long) coord.z * 0x12345678L) ^ 0x42L;
+        Random rng = new Random(seed);
+
+        // Only spawn villages in steppe biome (checked at chunk centre).
+        float cx = wx0 + (n - 1) * CELL_SIZE * 0.5f;
+        float cz = wz0 + (n - 1) * CELL_SIZE * 0.5f;
+        if (!generator.getBiomeAt(cx, cz).equals("Steppe")) return VillageData.empty();
+        if (rng.nextFloat() >= VILLAGE_PROBABILITY)         return VillageData.empty();
+
+        // Village centre: near chunk centre with a small random offset.
+        float vcx = cx + (rng.nextFloat() - 0.5f) * 10f;
+        float vcz = cz + (rng.nextFloat() - 0.5f) * 10f;
+
+        // Shacks scattered around the centre.
+        int shackCount = SHACK_MIN + rng.nextInt(SHACK_MAX - SHACK_MIN + 1);
+        List<MeshObject> shacks = new ArrayList<>(shackCount);
+        for (int i = 0; i < shackCount; i++) {
+            double angle = rng.nextDouble() * Math.PI * 2;
+            double dist  = 2.0 + rng.nextDouble() * (VILLAGE_RADIUS - 2.0);
+            double scale = SHACK_SCALE_MAX;
+            double yaw   = rng.nextInt(4) * (Math.PI / 2);
+
+            float sx = vcx + (float)(Math.sin(angle) * dist);
+            float sz = vcz + (float)(Math.cos(angle) * dist);
+            float h  = sampleHeight(sx, sz, wx0, wz0, n, heights);
+            if (h < 0.5f) continue; // skip river/ocean spots
+
+            MeshObject shack = new MeshObject(SHACK_PATH, true);
+            shack.setCollidable(false);
+            shack.setScale(scale);
+            shack.setPosition(sx, h, sz);
+            shack.setRotationEuler(0, yaw, 0);
+            shacks.add(shack);
+        }
+
+        // Street lamps interspersed in the village area.
+        int lampCount = 2 + rng.nextInt(3); // 2–4 lamps
+        List<StreetLamp> lamps = new ArrayList<>(lampCount);
+        for (int i = 0; i < lampCount; i++) {
+            double angle = rng.nextDouble() * Math.PI * 2;
+            double dist  = 1.5 + rng.nextDouble() * VILLAGE_RADIUS;
+            float lx = vcx + (float)(Math.sin(angle) * dist);
+            float lz = vcz + (float)(Math.cos(angle) * dist);
+            float h  = sampleHeight(lx, lz, wx0, wz0, n, heights);
+            if (h < 0.5f) continue;
+            lamps.add(new StreetLamp(lx, h, lz));
+        }
+
+        return new VillageData(shacks, lamps);
+    }
+
+    /** Nearest-neighbour height lookup clamped to chunk bounds. */
+    private static float sampleHeight(float wx, float wz,
+                                       float wx0, float wz0, int n, float[] heights) {
+        int c = Math.max(0, Math.min(n - 1, Math.round((wx - wx0) / CELL_SIZE)));
+        int r = Math.max(0, Math.min(n - 1, Math.round((wz - wz0) / CELL_SIZE)));
+        return heights[r * n + c];
+    }
+
+    // -----------------------------------------------------------------------
     // Internal: guy spawning
     // -----------------------------------------------------------------------
 
@@ -523,6 +611,18 @@ public class ChunkManager {
     // -----------------------------------------------------------------------
     // Inner data classes
     // -----------------------------------------------------------------------
+
+    private static final class VillageData {
+        final List<MeshObject> shacks;
+        final List<StreetLamp> lamps;
+        VillageData(List<MeshObject> shacks, List<StreetLamp> lamps) {
+            this.shacks = shacks;
+            this.lamps  = lamps;
+        }
+        static VillageData empty() {
+            return new VillageData(Collections.emptyList(), Collections.emptyList());
+        }
+    }
 
     private static final class PendingChunk {
         final ChunkCoord            coord;

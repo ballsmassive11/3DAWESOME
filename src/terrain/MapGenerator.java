@@ -266,7 +266,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 } else if (temp < 0.3f) {
                     // Tundra: 100% R (Cold)
                     rWeight = 1.0f;
-                } else if (temp > 0.3f && moisture < 0.6f) {
+                } else if (temp > 0.6f && moisture < 0.5f) {
                     // Desert: 100% G (Hot and Dry)
                     gWeight = 1.0f;
                 } else if (moisture > 0.6f) {
@@ -276,7 +276,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 // Steppe: Default (0,0,0)
 
                 if (riverVal < RIVER_WIDTH) {
-                    // Transition to Steppe (sand) smoothly within the riverbed.
+                    // Transition to Steppe (grass) smoothly within the riverbed.
                     // This prevents biome textures (like forest grass or tundra snow)
                     // from being abruptly replaced by Steppe grass at the river bank.
                     float t = riverVal / RIVER_WIDTH;
@@ -284,6 +284,12 @@ public class MapGenerator implements TerrainHeightProvider {
                     rWeight *= riverBlend;
                     gWeight *= riverBlend;
                     bWeight *= riverBlend;
+
+                    // Near the river bottom (low t), we want it to look sandy.
+                    if (t < 0.5f) {
+                        float sandBlend = (1.0f - t * 2.0f);
+                        gWeight = Math.max(gWeight, sandBlend);
+                    }
                 }
 
                 colors[cIdx    ] = rWeight;
@@ -425,7 +431,7 @@ public class MapGenerator implements TerrainHeightProvider {
         if (altVal > 0.7f)          return "Snowy Peaks";
         if (altVal > 0.45f)         return "Mountain";
         if (temp < 0.3f)            return "Tundra";
-        if (temp > 0.3f && moisture < 0.6f) return "Desert";
+        if (temp > 0.6f && moisture < 0.5f) return "Desert";
         if (moisture > 0.6f)        return "Forest";
 
         return "Steppe";

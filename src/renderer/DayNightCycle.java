@@ -20,7 +20,7 @@ public class DayNightCycle {
     private static final Color3f DAY_FOG     = new Color3f(0.9f,  0.9f,  0.9f);
 
     // --- Night colors (midnight) — moonlight: cool silver-blue, bright enough for water specular ---
-    private static final Color3f NIGHT_AMBIENT = new Color3f(0.08f, 0.08f, 0.21f);
+    private static final Color3f NIGHT_AMBIENT = new Color3f(0.06f, 0.06f, 0.16f);
     private static final Color3f NIGHT_SUN     = new Color3f(0.22f, 0.24f, 0.38f);
     private static final Color3f NIGHT_FOG     = new Color3f(0.03f, 0.03f, 0.10f);
 

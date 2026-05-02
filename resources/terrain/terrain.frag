@@ -19,7 +19,7 @@ void main() {
 
     vec4 steppeColor;
     if (t < 0.12) {
-        steppeColor = mix(sand, grass, t / 0.12);
+        steppeColor = grass;
     } else if (t < 0.50) {
         steppeColor = mix(grass, rock, (t - 0.12) / 0.38);
     } else if (t < 0.78) {
@@ -31,7 +31,7 @@ void main() {
     // Biome-specific variations
     // Tundra/Cold: snow at low blendT (plains), transitioning to rock at higher blendT (slopes)
     vec4 tundraColor = mix(snow, rock, clamp(t * 2.0, 0.0, 1.0)); 
-    vec4 desertColor = mix(sand, rock, clamp(t * 0.5, 0.0, 1.0)); // Hot/Dry: mostly sand
+    vec4 desertColor = mix(sand, rock, clamp(t * 0.2, 0.0, 1.0)); // Hot/Dry: mostly sand
     vec4 forestColor = mix(grass, rock, clamp(t, 0.0, 1.0));      // Wet: mostly grass
 
     // Blend biomes
