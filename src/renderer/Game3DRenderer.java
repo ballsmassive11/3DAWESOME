@@ -66,6 +66,8 @@ public class Game3DRenderer {
     private boolean pauseActive = false;
     private boolean hasDoneInitialLightUpdate = false;
 
+    private View view;
+
     private boolean rightMouseDown = false;
     private Point lastMousePos = new Point();
     private Robot robot;
@@ -89,7 +91,13 @@ public class Game3DRenderer {
         BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         transparentCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
 
-        GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
+        GraphicsConfigTemplate3D template = new GraphicsConfigTemplate3D();
+        template.setSceneAntialiasing(GraphicsConfigTemplate3D.PREFERRED);
+        GraphicsConfiguration config = GraphicsEnvironment
+            .getLocalGraphicsEnvironment()
+            .getDefaultScreenDevice()
+            .getBestConfiguration(template);
+        if (config == null) config = SimpleUniverse.getPreferredConfiguration();
         canvas = new GuiCanvas(config, world);
         canvas.setSize(800, 600);
         canvas.setFocusable(true);
@@ -209,11 +217,12 @@ public class Game3DRenderer {
         });
 
         universe = new SimpleUniverse(canvas);
-        View view = universe.getViewer().getView();
+        view = universe.getViewer().getView();
         view.setFieldOfView(fov);
         view.setBackClipDistance(renderDistance);
         view.setFrontClipDistance(0.05);
         view.setTransparencySortingPolicy(View.TRANSPARENCY_SORT_GEOMETRY);
+        view.setSceneAntialiasingEnable(GameSettings.antialiasing);
 
         viewingPlatform = universe.getViewingPlatform();
         viewTransformGroup = viewingPlatform.getViewPlatformTransform();
@@ -533,6 +542,10 @@ public class Game3DRenderer {
             fog.setFrontDistance(renderDistance * (1 - fogMargin) *2);
             fog.setBackDistance(renderDistance*2);
         }
+    }
+
+    public void setAntialiasing(boolean enabled) {
+        view.setSceneAntialiasingEnable(enabled);
     }
 
     public void setCamera(Vector3d cameraPos, Point3d lookAt) {

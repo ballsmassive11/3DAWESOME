@@ -203,6 +203,22 @@ public class CommandHandler {
             String err = scripts().runFile(parts[1].trim());
             hud.logOutput(err == null ? "script ok" : "script error: " + err);
 
+        } else if (cmd.equals("aa") && parts.length == 2) {
+            String arg = parts[1].trim().toLowerCase();
+            if (arg.equals("on")) {
+                renderer.setAntialiasing(true);
+                GameSettings.antialiasing = true;
+                GameSettings.save();
+                hud.logOutput("Anti-aliasing ON.");
+            } else if (arg.equals("off")) {
+                renderer.setAntialiasing(false);
+                GameSettings.antialiasing = false;
+                GameSettings.save();
+                hud.logOutput("Anti-aliasing OFF.");
+            } else {
+                hud.logOutput("Usage: aa on|off");
+            }
+
         } else if (cmd.equals("reloadsettings")) {
             GameSettings.load();
             renderer.setFov(GameSettings.fov);
@@ -213,6 +229,7 @@ public class CommandHandler {
         } else if (cmd.equals("cmds") || cmd.equals("help")) {
             hud.logOutput("fly                     - Toggle flight (Space=up, Shift=down)");
             hud.logOutput("shiftlock [on|off]      - Toggle shift lock (mouse centered, player rotation follows camera)");
+            hud.logOutput("aa on|off               - Toggle full-scene anti-aliasing (MSAA)");
             hud.logOutput("fog on|off              - Toggle distance fog");
             hud.logOutput("fog <margin 0.01-1.0>   - Set fog transition width (fraction of rdist)");
             hud.logOutput("fog near <dist>         - Set fog start in world units");

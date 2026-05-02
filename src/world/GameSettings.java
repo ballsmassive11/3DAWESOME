@@ -20,6 +20,9 @@ public class GameSettings {
     /** Default render distance in world units. Default: 70.0. */
     public static double renderDistance = 70.0;
 
+    /** Whether full-scene anti-aliasing (MSAA) is enabled. Default: true. */
+    public static boolean antialiasing = true;
+
     static {
         load();
     }
@@ -34,6 +37,7 @@ public class GameSettings {
             mouseSensitivity = Double.parseDouble(props.getProperty("mouseSensitivity", "0.002"));
             fov = Double.parseDouble(props.getProperty("fov", String.valueOf(Math.PI / 3.0)));
             renderDistance = Double.parseDouble(props.getProperty("renderDistance", "70.0"));
+            antialiasing = Boolean.parseBoolean(props.getProperty("antialiasing", "true"));
         } catch (IOException | NumberFormatException e) {
             System.err.println("Could not load settings, using defaults: " + e.getMessage());
         }
@@ -45,6 +49,7 @@ public class GameSettings {
         props.setProperty("mouseSensitivity", String.valueOf(mouseSensitivity));
         props.setProperty("fov", String.valueOf(fov));
         props.setProperty("renderDistance", String.valueOf(renderDistance));
+        props.setProperty("antialiasing", String.valueOf(antialiasing));
 
         try (OutputStream out = new FileOutputStream(SETTINGS_FILE)) {
             props.store(out, "Game Settings");
