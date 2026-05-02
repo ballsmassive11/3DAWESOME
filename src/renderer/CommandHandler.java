@@ -34,7 +34,7 @@ public class CommandHandler {
     }
 
     private ScriptRunner scripts() {
-        if (scriptRunner == null) scriptRunner = new ScriptRunner(world, renderer.getGuiCanvas());
+        if (scriptRunner == null) scriptRunner = new ScriptRunner(world, renderer.getGuiCanvas(), renderer);
         return scriptRunner;
     }
 

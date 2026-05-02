@@ -35,6 +35,7 @@ public class Game3DRenderer {
     private double renderDistance = 70.0;
     // Fraction of render distance over which fog fades in (0=instant at clip, 1=starts at origin).
     private double fogMargin = 0.5;
+    private boolean fogEnabled = true;
     private LinearFog fog;
     private Skybox skybox;
     private DayNightCycle dayNightCycle;
@@ -485,9 +486,15 @@ public class Game3DRenderer {
     }
 
     public void setFogOn(boolean on) {
-        if (on && fogMargin > 0) {
-            fog.setFrontDistance(renderDistance * (1 - fogMargin)*2);
-            fog.setBackDistance(renderDistance*2);
+        this.fogEnabled = on;
+        updateFogDistances();
+    }
+
+    private void updateFogDistances() {
+        if (fog == null) return;
+        if (fogEnabled && fogMargin > 0) {
+            fog.setFrontDistance(renderDistance * (1 - fogMargin) * 2);
+            fog.setBackDistance(renderDistance * 2);
             if (skybox != null) skybox.setFogVisible(true);
         } else {
             fog.setFrontDistance(1e10);
@@ -502,16 +509,7 @@ public class Game3DRenderer {
 
     public void setFogMargin(double margin) {
         this.fogMargin = margin;
-        if (margin <= 0) {
-            // margin=0 means no fog — disable entirely (same as fog off)
-            fog.setFrontDistance(1e10);
-            fog.setBackDistance(1e10);
-            if (skybox != null) skybox.setFogVisible(false);
-        } else {
-            fog.setFrontDistance(renderDistance * (1 - margin)*2);
-            fog.setBackDistance(renderDistance*2);
-            if (skybox != null) skybox.setFogVisible(true);
-        }
+        updateFogDistances();
     }
 
     public void setFogNear(double nearDist) {
@@ -538,10 +536,7 @@ public class Game3DRenderer {
     public void setRenderDistance(double distance) {
         renderDistance = distance;
         universe.getViewer().getView().setBackClipDistance(renderDistance);
-        if (fog != null) {
-            fog.setFrontDistance(renderDistance * (1 - fogMargin) *2);
-            fog.setBackDistance(renderDistance*2);
-        }
+        updateFogDistances();
     }
 
     public void setAntialiasing(boolean enabled) {

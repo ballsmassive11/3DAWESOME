@@ -5,6 +5,7 @@ import gui.components.GuiFrame;
 import gui.components.GuiTexture;
 import gui.text.GuiText;
 import gui.vec.Vector2;
+import renderer.Game3DRenderer;
 import world.World;
 
 import java.awt.Color;
@@ -16,17 +17,37 @@ import java.awt.Color;
 public class ModApi {
     private final World world;
     private final GuiCanvas gui;
+    private final Game3DRenderer renderer;
 
-    public ModApi(World world, GuiCanvas gui) {
+    public ModApi(World world, GuiCanvas gui, Game3DRenderer renderer) {
         this.world = world;
         this.gui = gui;
+        this.renderer = renderer;
     }
 
     // ------------------------------------------------------------------
-    // World
+    // World & Rendering
     // ------------------------------------------------------------------
 
-    //public void setFogMargin(int margin) {world.get;
+    public void setFogMargin(double margin) {
+        renderer.setFogMargin(margin);
+    }
+
+    public void setFogNear(double near) {
+        renderer.setFogNear(near);
+    }
+
+    public void setFogEnabled(boolean enabled) {
+        renderer.setFogOn(enabled);
+    }
+
+    public void setRenderDistance(double distance) {
+        renderer.setRenderDistance(distance);
+    }
+
+    public void setFov(double fovDegrees) {
+        renderer.setFov(Math.toRadians(fovDegrees));
+    }
 
     public void setPlayerModel(String path) {
         world.setPlayerModel(path);

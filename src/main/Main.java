@@ -131,7 +131,7 @@ public class Main {
         if (modsDir.isDirectory()) {
             File[] pys = modsDir.listFiles((d, n) -> n.endsWith(".py"));
             if (pys != null && pys.length > 0) {
-                ScriptRunner runner = new ScriptRunner(world,gui);
+                ScriptRunner runner = new ScriptRunner(world, gui, renderer);
                 for (File f : pys) {
                     String err = runner.runFile(f.getPath());
                     if (err != null) System.err.println("[mod " + f.getName() + "] " + err);
