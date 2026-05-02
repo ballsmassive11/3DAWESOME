@@ -23,6 +23,9 @@ public class GameSettings {
     /** Whether full-scene anti-aliasing (MSAA) is enabled. Default: true. */
     public static boolean antialiasing = true;
 
+    /** Anisotropic filtering degree (1 = off, 16 = max). Default: 8. */
+    public static float anisotropicDegree = 8.0f;
+
     static {
         load();
     }
@@ -38,6 +41,7 @@ public class GameSettings {
             fov = Double.parseDouble(props.getProperty("fov", String.valueOf(Math.PI / 3.0)));
             renderDistance = Double.parseDouble(props.getProperty("renderDistance", "70.0"));
             antialiasing = Boolean.parseBoolean(props.getProperty("antialiasing", "true"));
+            anisotropicDegree = Float.parseFloat(props.getProperty("anisotropicDegree", "8.0"));
         } catch (IOException | NumberFormatException e) {
             System.err.println("Could not load settings, using defaults: " + e.getMessage());
         }
@@ -50,6 +54,7 @@ public class GameSettings {
         props.setProperty("fov", String.valueOf(fov));
         props.setProperty("renderDistance", String.valueOf(renderDistance));
         props.setProperty("antialiasing", String.valueOf(antialiasing));
+        props.setProperty("anisotropicDegree", String.valueOf(anisotropicDegree));
 
         try (OutputStream out = new FileOutputStream(SETTINGS_FILE)) {
             props.store(out, "Game Settings");

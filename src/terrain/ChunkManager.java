@@ -212,6 +212,38 @@ public class ChunkManager {
 
             generator.buildChunkData(wx0, wz0, n, CELL_SIZE, heights, colors, riverVals);
 
+            // Path generation for villages
+            long vSeed = ((long) coord.x * 0xABCDEF01L) ^ ((long) coord.z * 0x12345678L) ^ 0x42L;
+            Random vRng = new Random(vSeed);
+            float cx = wx0 + (n - 1) * CELL_SIZE * 0.5f;
+            float cz = wz0 + (n - 1) * CELL_SIZE * 0.5f;
+            if (generator.getBiomeAt(cx, cz).equals("Steppe") && vRng.nextFloat() < VILLAGE_PROBABILITY) {
+                float vcx = cx + (vRng.nextFloat() - 0.5f) * 10f;
+                float vcz = cz + (vRng.nextFloat() - 0.5f) * 10f;
+
+                for (int r = 0; r < n; r++) {
+                    float wz = wz0 + r * CELL_SIZE;
+                    for (int c = 0; c < n; c++) {
+                        float wx = wx0 + c * CELL_SIZE;
+                        float dx = wx - vcx;
+                        float dz = wz - vcz;
+                        float distSq = dx * dx + dz * dz;
+                        float rInnerSq = (VILLAGE_RADIUS - 2.0f) * (VILLAGE_RADIUS - 2.0f);
+                        float rOuterSq = (VILLAGE_RADIUS + 2.0f) * (VILLAGE_RADIUS + 2.0f);
+
+                        if (distSq < rOuterSq) {
+                            float pathWeight = 1.0f;
+                            if (distSq > rInnerSq) {
+                                float dist = (float) Math.sqrt(distSq);
+                                pathWeight = 1.0f - (dist - (VILLAGE_RADIUS - 2.0f)) / 4.0f;
+                            }
+                            // Signal path by boosting G weight above 1.5 in the shader
+                            colors[(r * n + c) * 4 + 1] = 1.5f + pathWeight;
+                        }
+                    }
+                }
+            }
+
             // All chunks share a single cached ShaderAppearance.  After the first chunk
             // makes it live, Java3D only performs a reference-count bump for subsequent
             // chunks — no per-chunk shader/texture initialisation, no render-thread lock.

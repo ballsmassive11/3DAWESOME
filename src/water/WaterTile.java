@@ -1,6 +1,7 @@
 package water;
 
 import objects.BaseObject;
+import world.GameSettings;
 
 import com.sun.j3d.utils.image.TextureLoader;
 import javax.media.j3d.*;
@@ -226,6 +227,8 @@ public class WaterTile extends BaseObject {
         tex.setBoundaryModeT(Texture.WRAP);
         tex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
         tex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+        tex.setAnisotropicFilterMode(Texture.ANISOTROPIC_SINGLE_VALUE);
+        tex.setAnisotropicFilterDegree(GameSettings.anisotropicDegree);
         return tex;
     }
 }

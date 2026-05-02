@@ -219,6 +219,21 @@ public class CommandHandler {
                 hud.logOutput("Usage: aa on|off");
             }
 
+        } else if (cmd.equals("aniso")) {
+            if (parts.length < 2) {
+                hud.logOutput("Anisotropic filtering: " + GameSettings.anisotropicDegree + "x  (1 = off, max 16)");
+            } else {
+                try {
+                    float deg = Float.parseFloat(parts[1]);
+                    deg = Math.max(1.0f, Math.min(16.0f, deg));
+                    GameSettings.anisotropicDegree = deg;
+                    GameSettings.save();
+                    hud.logOutput("Anisotropic filtering set to " + deg + "x. Regenerate map ('genmap') to apply.");
+                } catch (NumberFormatException ignored) {
+                    hud.logOutput("Usage: aniso <1-16>");
+                }
+            }
+
         } else if (cmd.equals("reloadsettings")) {
             GameSettings.load();
             renderer.setFov(GameSettings.fov);
@@ -230,6 +245,7 @@ public class CommandHandler {
             hud.logOutput("fly                     - Toggle flight (Space=up, Shift=down)");
             hud.logOutput("shiftlock [on|off]      - Toggle shift lock (mouse centered, player rotation follows camera)");
             hud.logOutput("aa on|off               - Toggle full-scene anti-aliasing (MSAA)");
+            hud.logOutput("aniso [<1-16>]           - Get/set anisotropic filtering degree (default 8, needs genmap)");
             hud.logOutput("fog on|off              - Toggle distance fog");
             hud.logOutput("fog <margin 0.01-1.0>   - Set fog transition width (fraction of rdist)");
             hud.logOutput("fog near <dist>         - Set fog start in world units");

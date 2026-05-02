@@ -2,6 +2,7 @@ uniform sampler2D sandTex;
 uniform sampler2D grassTex;
 uniform sampler2D rockTex;
 uniform sampler2D snowTex;
+uniform sampler2D pathTex;
 
 varying vec2  vTexCoord;
 varying float vBlendT;
@@ -16,6 +17,7 @@ void main() {
     vec4 grass = texture2D(grassTex, vTexCoord);
     vec4 rock  = texture2D(rockTex,  vTexCoord);
     vec4 snow  = texture2D(snowTex,  vTexCoord);
+    vec4 path  = texture2D(pathTex,  vTexCoord);
 
     vec4 steppeColor;
     if (t < 0.12) {
@@ -39,6 +41,14 @@ void main() {
     texColor = mix(texColor, tundraColor, vBiomeWeights.r);
     texColor = mix(texColor, desertColor, vBiomeWeights.g);
     texColor = mix(texColor, forestColor, vBiomeWeights.b);
+
+    // Draw path: use high G weight to signal path if R and B are low and G is very high (e.g. > 1.0)
+    // Actually, I can just use a specific threshold. 
+    // If G > 1.5, it's a path.
+    if (vBiomeWeights.g > 1.5) {
+        float pathWeight = clamp(vBiomeWeights.g - 1.5, 0.0, 1.0);
+        texColor = mix(texColor, path, pathWeight);
+    }
 
     vec3 litColor = texColor.rgb * vLighting;
 

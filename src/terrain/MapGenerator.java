@@ -9,6 +9,7 @@ import physics.TerrainHeightProvider;
 import util.FastNoiseLite;
 import util.ProgressReporter;
 import water.WaterTile;
+import world.GameSettings;
 import world.World;
 import world.WorldBorder;
 
@@ -309,7 +310,8 @@ public class MapGenerator implements TerrainHeightProvider {
             SHADER_DIR + "sand.jpg",
             SHADER_DIR + "grass.jpg",
             SHADER_DIR + "rock.jpg",
-            SHADER_DIR + "snow.jpg"
+            SHADER_DIR + "snow.jpg",
+            SHADER_DIR + "path.jpg"
         };
         terrainTextures = new Texture2D[texPaths.length];
         for (int i = 0; i < texPaths.length; i++) {
@@ -320,6 +322,8 @@ public class MapGenerator implements TerrainHeightProvider {
                 tex.setBoundaryModeT(Texture.WRAP);
                 tex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
                 tex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+                tex.setAnisotropicFilterMode(Texture.ANISOTROPIC_SINGLE_VALUE);
+                tex.setAnisotropicFilterDegree(GameSettings.anisotropicDegree);
             } else {
                 System.err.println("Warning: could not load terrain texture: " + texPaths[i]);
             }
@@ -337,13 +341,14 @@ public class MapGenerator implements TerrainHeightProvider {
 
             terrainShaderProgram = new GLSLShaderProgram();
             terrainShaderProgram.setShaders(new Shader[] { vs, fs });
-            terrainShaderProgram.setShaderAttrNames(new String[] { "sandTex", "grassTex", "rockTex", "snowTex" });
+            terrainShaderProgram.setShaderAttrNames(new String[] { "sandTex", "grassTex", "rockTex", "snowTex", "pathTex" });
 
             terrainShaderAttrs = new ShaderAttributeSet();
             terrainShaderAttrs.put(new ShaderAttributeValue("sandTex",  new Integer(0)));
             terrainShaderAttrs.put(new ShaderAttributeValue("grassTex", new Integer(1)));
             terrainShaderAttrs.put(new ShaderAttributeValue("rockTex",  new Integer(2)));
             terrainShaderAttrs.put(new ShaderAttributeValue("snowTex",  new Integer(3)));
+            terrainShaderAttrs.put(new ShaderAttributeValue("pathTex",  new Integer(4)));
 
         } catch (IOException e) {
             System.err.println("Could not load terrain shaders: " + e.getMessage());

@@ -12,6 +12,7 @@ import java.nio.file.*;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Properties;
+import world.GameSettings;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -199,6 +200,8 @@ public class MeshObject extends BaseObject {
             if (texture != null) {
                 texture.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
                 texture.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+                texture.setAnisotropicFilterMode(Texture.ANISOTROPIC_SINGLE_VALUE);
+                texture.setAnisotropicFilterDegree(GameSettings.anisotropicDegree);
             }
             return texture;
         } catch (IOException e) {
@@ -307,6 +310,8 @@ public class MeshObject extends BaseObject {
                 if (tex != null) {
                     tex.setMinFilter(Texture.MULTI_LEVEL_LINEAR);
                     tex.setMagFilter(Texture.BASE_LEVEL_LINEAR);
+                    tex.setAnisotropicFilterMode(Texture.ANISOTROPIC_SINGLE_VALUE);
+                    tex.setAnisotropicFilterDegree(GameSettings.anisotropicDegree);
                     // REPLACE mode (Java3D default) ignores lighting; MODULATE multiplies
                     // the texture by the lit material color so shading applies correctly.
                     if (app.getTextureAttributes() == null) {
