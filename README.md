@@ -7,6 +7,7 @@ A Java3D-powered game engine with procedural terrain, physics, and a real-time c
 - **Procedural World** — OpenSimplex2 terrain with biomes (Forest, Tundra, Desert, etc.).
 - **Dynamic Physics** — Capsule vs AABB collisions and wandering NPCs.
 - **Atmospheric Rendering** — Day/night cycle, distance fog, and skyboxes.
+- **Dynamic Lighting** — Point lights (Street Lamps) and smooth celestial interpolation.
 - **Extensible Objects** — OBJ loading with caching and material support.
 - **Live Console** — Runtime object spawning and setting adjustments.
 

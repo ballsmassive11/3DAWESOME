@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-05-01
+### Added
+- Added Python modding support via Jython.
+- New `ModApi` for interacting with the game engine from scripts.
+- Added a Pause Menu (`Esc` key) with "Resume" and "Quit" options.
+- Improved village generation logic and biome distribution.
+- New "Shack" model with full texture support.
+
+### Fixed
+- Various bug fixes and stability improvements in terrain generation.
+
+## [0.6.0] - 2026-05-01
+### Added
+- Added StreetLamp objects that emit point light.
+- Added procedural village generation with shacks and streetlamps.
+- Added light attenuation and influencing bounds for better performance.
+- Improved Day/Night cycle with smoother color interpolation and celestial movement.
+
 ## [0.5.0] - 2026-04-30
 ### Added
 - New "Guy" entity that wanders randomly in terrain chunks.
