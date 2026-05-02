@@ -38,15 +38,23 @@ void main() {
 
     // Blend biomes
     vec4 texColor = steppeColor;
-    texColor = mix(texColor, tundraColor, vBiomeWeights.r);
-    texColor = mix(texColor, desertColor, vBiomeWeights.g);
-    texColor = mix(texColor, forestColor, vBiomeWeights.b);
+    float wR = clamp(vBiomeWeights.r, 0.0, 1.0);
+    float wG = clamp(vBiomeWeights.g, 0.0, 1.0);
+    float wB = clamp(vBiomeWeights.b, 0.0, 1.0);
 
-    // Draw path: use high G weight to signal path if R and B are low and G is very high (e.g. > 1.0)
-    // Actually, I can just use a specific threshold. 
-    // If G > 1.5, it's a path.
-    if (vBiomeWeights.g > 1.5) {
-        float pathWeight = clamp(vBiomeWeights.g - 1.5, 0.0, 1.0);
+    // If it's a path, we should not apply the biome weight that we use for signaling.
+    if (vBiomeWeights.b > 1.0) {
+        wB = 0.0;
+    }
+
+    texColor = mix(texColor, tundraColor, wR);
+    texColor = mix(texColor, desertColor, wG);
+    texColor = mix(texColor, forestColor, wB);
+
+    // Draw path: use high B weight to signal path.
+    // If B > 1.5, it's a path.
+    if (vBiomeWeights.b > 1.5) {
+        float pathWeight = clamp(vBiomeWeights.b - 1.5, 0.0, 1.0);
         texColor = mix(texColor, path, pathWeight);
     }
 

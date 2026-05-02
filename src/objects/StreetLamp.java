@@ -1,5 +1,6 @@
 package objects;
 
+import physics.AABB;
 import javax.media.j3d.*;
 import javax.vecmath.*;
 
@@ -16,6 +17,8 @@ public class StreetLamp {
         model = new MeshObject(MODEL_PATH, true);
         model.setPosition(x, y, z);
         model.setScale(4f);
+        model.setCollidable(true);
+        model.setLocalAABB(new AABB(0.10f, 1.0f, 0.10f));
 
         double headY = y + LIGHT_OFFSET_Y;
         light = new PointLight();
@@ -29,5 +32,9 @@ public class StreetLamp {
     public void addToGroup(BranchGroup group) {
         group.addChild(model.getBranchGroup());
         group.addChild(light);
+    }
+
+    public MeshObject getModel() {
+        return model;
     }
 }

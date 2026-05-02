@@ -17,6 +17,11 @@ public final class AABB {
         this(-halfX, -halfY, -halfZ, halfX, halfY, halfZ);
     }
 
+    /** Local AABB with the given half-extents, offset from the origin. */
+    public static AABB offset(float hX, float hY, float hZ, float oX, float oY, float oZ) {
+        return new AABB(oX - hX, oY - hY, oZ - hZ, oX + hX, oY + hY, oZ + hZ);
+    }
+
     /** Explicit min/max constructor (world or local). */
     public AABB(float minX, float minY, float minZ,
                 float maxX, float maxY, float maxZ) {

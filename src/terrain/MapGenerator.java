@@ -41,6 +41,7 @@ public class MapGenerator implements TerrainHeightProvider {
     private static final float RIVER_BOTTOM = -2.0f;  // river-bed height (below water → looks filled)
     private static final float RIVER_WIDTH  = 0.15f;  // |riverNoise| threshold for channel width
     private static final float ALTITUDE_BONUS = 70f;
+    private static final float ALTITUDE_BONUS_THRESHOLD = 0.1f;
 
     // Tree spawning constants
     private static final float TREE_DENSITY = 0.01f;
@@ -115,7 +116,7 @@ public class MapGenerator implements TerrainHeightProvider {
         // --- altitude noise: medium frequency for mountainous areas ---
         altNoise = new FastNoiseLite();
         altNoise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
-        altNoise.SetFrequency(0.001f);
+        altNoise.SetFrequency(0.002f);
         altNoise.SetFractalType(FastNoiseLite.FractalType.FBm);
         altNoise.SetFractalOctaves(4);
 
@@ -235,20 +236,20 @@ public class MapGenerator implements TerrainHeightProvider {
                     float t     = riverVal / RIVER_WIDTH;
                     float blend = t * t * (3.0f - 2.0f * t);
                     float baseHeight = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
-                    if (altVal > 0.3f) {
-                        baseHeight += (altVal - 0.3f) * ALTITUDE_BONUS * blend;
+                    if (altVal > ALTITUDE_BONUS_THRESHOLD) {
+                        baseHeight += (altVal - ALTITUDE_BONUS_THRESHOLD) * ALTITUDE_BONUS * blend;
                     }
                     height = baseHeight;
                     float baseT = blend * normalizedH * 0.15f;
-                    blendT = altVal > 0.3f
-                            ? Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f)
+                    blendT = altVal > ALTITUDE_BONUS_THRESHOLD
+                            ? Math.min(baseT + (altVal - ALTITUDE_BONUS_THRESHOLD) * 0.5f, 1.0f)
                             : Math.min(baseT * 1.2f, 1.0f);
                 } else {
                     height = hillHeight;
                     float baseT = Math.min(normalizedH * 0.20f, 0.65f);
-                    if (altVal > 0.3f) {
-                        height += (altVal - 0.3f) * ALTITUDE_BONUS;
-                        blendT = Math.min(baseT + (altVal - 0.3f) * 0.5f, 1.0f);
+                    if (altVal > ALTITUDE_BONUS_THRESHOLD) {
+                        height += (altVal - ALTITUDE_BONUS_THRESHOLD) * ALTITUDE_BONUS;
+                        blendT = Math.min(baseT + (altVal - ALTITUDE_BONUS_THRESHOLD) * 0.5f, 1.0f);
                     } else {
                         blendT = Math.min(baseT * 1.2f, 1.0f);
                     }
@@ -264,7 +265,7 @@ public class MapGenerator implements TerrainHeightProvider {
                 } else if (altVal > 0.45f) {
                     // Mountain: Also cold/rocky, use Tundra weights
                     rWeight = 1.0f;
-                } else if (temp < 0.3f) {
+                } else if (temp < 0.4f) {
                     // Tundra: 100% R (Cold)
                     rWeight = 1.0f;
                 } else if (temp > 0.6f && moisture < 0.5f) {
@@ -404,15 +405,15 @@ public class MapGenerator implements TerrainHeightProvider {
             float t     = riverVal / RIVER_WIDTH;
             float blend = t * t * (3.0f - 2.0f * t);
             float h = RIVER_BOTTOM + (hillHeight - RIVER_BOTTOM) * blend;
-            if (altVal > 0.3f) {
-                h += (altVal - 0.3f) * ALTITUDE_BONUS * blend;
+            if (altVal > ALTITUDE_BONUS_THRESHOLD) {
+                h += (altVal - ALTITUDE_BONUS_THRESHOLD) * ALTITUDE_BONUS * blend;
             }
             return h;
         }
 
         float h = hillHeight;
-        if (altVal > 0.3f) {
-            h += (altVal - 0.3f) * ALTITUDE_BONUS;
+        if (altVal > ALTITUDE_BONUS_THRESHOLD) {
+            h += (altVal - ALTITUDE_BONUS_THRESHOLD) * ALTITUDE_BONUS;
         }
         return h;
     }
@@ -433,9 +434,9 @@ public class MapGenerator implements TerrainHeightProvider {
         float temp        = (tempNoise.GetNoise(wx, wz) + 1.0f) * 0.5f;
         float moisture    = (moistureNoise.GetNoise(wx, wz) + 1.0f) * 0.5f;
 
-        if (altVal > 0.7f)          return "Snowy Peaks";
-        if (altVal > 0.45f)         return "Mountain";
-        if (temp < 0.3f)            return "Tundra";
+        if (altVal > 0.4f)          return "Snowy Peaks";
+        if (altVal > 0.15f)         return "Mountain";
+        if (temp < 0.4f)            return "Tundra";
         if (temp > 0.6f && moisture < 0.5f) return "Desert";
         if (moisture > 0.6f)        return "Forest";
 

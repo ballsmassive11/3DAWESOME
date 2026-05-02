@@ -212,33 +212,47 @@ public class ChunkManager {
 
             generator.buildChunkData(wx0, wz0, n, CELL_SIZE, heights, colors, riverVals);
 
-            // Path generation for villages
-            long vSeed = ((long) coord.x * 0xABCDEF01L) ^ ((long) coord.z * 0x12345678L) ^ 0x42L;
-            Random vRng = new Random(vSeed);
-            float cx = wx0 + (n - 1) * CELL_SIZE * 0.5f;
-            float cz = wz0 + (n - 1) * CELL_SIZE * 0.5f;
-            if (generator.getBiomeAt(cx, cz).equals("Steppe") && vRng.nextFloat() < VILLAGE_PROBABILITY) {
-                float vcx = cx + (vRng.nextFloat() - 0.5f) * 10f;
-                float vcz = cz + (vRng.nextFloat() - 0.5f) * 10f;
+            // Path generation for villages: check current and adjacent chunks
+            for (int dxChunk = -1; dxChunk <= 1; dxChunk++) {
+                for (int dzChunk = -1; dzChunk <= 1; dzChunk++) {
+                    int neighborX = coord.x + dxChunk;
+                    int neighborZ = coord.z + dzChunk;
 
-                for (int r = 0; r < n; r++) {
-                    float wz = wz0 + r * CELL_SIZE;
-                    for (int c = 0; c < n; c++) {
-                        float wx = wx0 + c * CELL_SIZE;
-                        float dx = wx - vcx;
-                        float dz = wz - vcz;
-                        float distSq = dx * dx + dz * dz;
-                        float rInnerSq = (VILLAGE_RADIUS - 2.0f) * (VILLAGE_RADIUS - 2.0f);
-                        float rOuterSq = (VILLAGE_RADIUS + 2.0f) * (VILLAGE_RADIUS + 2.0f);
+                    long vSeed = ((long) neighborX * 0xABCDEF01L) ^ ((long) neighborZ * 0x12345678L) ^ 0x42L;
+                    Random vRng = new Random(vSeed);
 
-                        if (distSq < rOuterSq) {
-                            float pathWeight = 1.0f;
-                            if (distSq > rInnerSq) {
-                                float dist = (float) Math.sqrt(distSq);
-                                pathWeight = 1.0f - (dist - (VILLAGE_RADIUS - 2.0f)) / 4.0f;
+                    float neighborWx0 = neighborX * CHUNK_SIZE_WORLD;
+                    float neighborWz0 = neighborZ * CHUNK_SIZE_WORLD;
+                    float ncx = neighborWx0 + (n - 1) * CELL_SIZE * 0.5f;
+                    float ncz = neighborWz0 + (n - 1) * CELL_SIZE * 0.5f;
+
+                    if (generator.getBiomeAt(ncx, ncz).equals("Steppe") && vRng.nextFloat() < VILLAGE_PROBABILITY) {
+                        float vcx = ncx + (vRng.nextFloat() - 0.5f) * 10f;
+                        float vcz = ncz + (vRng.nextFloat() - 0.5f) * 10f;
+
+                        for (int r = 0; r < n; r++) {
+                            float wz = wz0 + r * CELL_SIZE;
+                            for (int c = 0; c < n; c++) {
+                                float wx = wx0 + c * CELL_SIZE;
+                                float dx = wx - vcx;
+                                float dz = wz - vcz;
+                                float distSq = dx * dx + dz * dz;
+                                float rInnerSq = (VILLAGE_RADIUS - 2.0f) * (VILLAGE_RADIUS - 2.0f);
+                                float rOuterSq = (VILLAGE_RADIUS + 2.0f) * (VILLAGE_RADIUS + 2.0f);
+
+                                if (distSq < rOuterSq) {
+                                    float pathWeight = 1.0f;
+                                    if (distSq > rInnerSq) {
+                                        float dist = (float) Math.sqrt(distSq);
+                                        pathWeight = 1.0f - (dist - (VILLAGE_RADIUS - 2.0f)) / 4.0f;
+                                    }
+                                    // Signal path by boosting B weight above 1.5 in the shader
+                                    // Use Math.max to handle overlapping villages from different chunks
+                                    int colorIdx = (r * n + c) * 4 + 2;
+                                    float currentWeight = colors[colorIdx] > 1.5f ? colors[colorIdx] - 1.5f : 0f;
+                                    colors[colorIdx] = 1.5f + Math.max(currentWeight, pathWeight);
+                                }
                             }
-                            // Signal path by boosting G weight above 1.5 in the shader
-                            colors[(r * n + c) * 4 + 1] = 1.5f + pathWeight;
                         }
                     }
                 }
@@ -277,8 +291,12 @@ public class ChunkManager {
             for (MeshObject s : village.shacks) {
                 s.getBranchGroup(); // trigger OBJ load on background thread
                 chunkSceneBG.addChild(s.getBranchGroup());
+                trees.add(s); // Register shacks for collision tracking via the trees list
             }
-            for (StreetLamp lamp : village.lamps) lamp.addToGroup(chunkSceneBG);
+            for (StreetLamp lamp : village.lamps) {
+                lamp.addToGroup(chunkSceneBG);
+                trees.add(lamp.getModel());
+            }
 
             // Pre-set explicit bounds so Java3D does not need to traverse every vertex
             // in the subtree when this group is addChild'd to the live scene graph.
@@ -374,13 +392,15 @@ public class ChunkManager {
 
     private static final String SHACK_PATH         = "resources/models/Shack/shack.obj";
     /** Fraction of steppe chunks that spawn a village (~1 in 12). */
-    private static final float  VILLAGE_PROBABILITY = 0.07f;
+    private static final float  VILLAGE_PROBABILITY = 0.06f;
     /** Radius around village center within which shacks are scattered. */
-    private static final float  VILLAGE_RADIUS      = 30.0f;
-    private static final int    SHACK_MIN           = 5;
-    private static final int    SHACK_MAX           = 10;
+    private static final float  VILLAGE_RADIUS      = 34.0f;
+    private static final int    SHACK_MIN           = 7;
+    private static final int    SHACK_MAX           = 12;
     private static final double SHACK_SCALE_MIN     = 1.0;
     private static final double SHACK_SCALE_MAX     = 4.8;
+    private static final int  LAMP_MIN    = 5;
+    private static final int  LAMP_MAX    = 10;
 
     private static List<MeshObject> buildTrees(ChunkCoord coord,
                                                 float wx0, float wz0, int n,
@@ -536,7 +556,8 @@ public class ChunkManager {
             if (h < 0.5f) continue; // skip river/ocean spots
 
             MeshObject shack = new MeshObject(SHACK_PATH, true);
-            shack.setCollidable(false);
+            shack.setCollidable(true);
+            shack.setLocalAABB(AABB.offset(0.55f, 0.6f, 0.84f, 0f, -0.2f, -0.1f));
             shack.setScale(scale);
             shack.setPosition(sx, h, sz);
             shack.setRotationEuler(0, yaw, 0);
@@ -544,7 +565,7 @@ public class ChunkManager {
         }
 
         // Street lamps interspersed in the village area.
-        int lampCount = 2 + rng.nextInt(3); // 2–4 lamps
+        int lampCount = LAMP_MIN + rng.nextInt(LAMP_MAX-LAMP_MIN); // 2–4 lamps
         List<StreetLamp> lamps = new ArrayList<>(lampCount);
         for (int i = 0; i < lampCount; i++) {
             double angle = rng.nextDouble() * Math.PI * 2;

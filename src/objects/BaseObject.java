@@ -203,13 +203,10 @@ public abstract class BaseObject {
     protected void addHitboxWireframe() {
         if (localAABB == null) return;
 
-        AABB w = getWorldAABB();
-        if (w == null) return;
-
-        // Use world-space AABB coordinates so the wireframe is always axis-aligned
-        // and matches the actual collision volume, regardless of rotation or pivot.
-        float x0 = w.minX, y0 = w.minY, z0 = w.minZ;
-        float x1 = w.maxX, y1 = w.maxY, z1 = w.maxZ;
+        // Use local-space AABB coordinates so the wireframe is transformed
+        // along with the object by transformGroup.
+        float x0 = localAABB.minX, y0 = localAABB.minY, z0 = localAABB.minZ;
+        float x1 = localAABB.maxX, y1 = localAABB.maxY, z1 = localAABB.maxZ;
 
         Point3f[] pts = {
             // Bottom face
@@ -243,9 +240,9 @@ public abstract class BaseObject {
                 new LineAttributes(2f, LineAttributes.PATTERN_SOLID, true));
         wireApp.setRenderingAttributes(hitboxRA);
 
-        // Attach to branchGroup (scene-root level, no transform) so the wireframe
-        // sits in world space. This means scale/rotation/pivot cannot skew it.
-        branchGroup.addChild(new Shape3D(la, wireApp));
+        // Attach to transformGroup so the wireframe follows the object's
+        // position, rotation, and scale.
+        transformGroup.addChild(new Shape3D(la, wireApp));
     }
 
     // ------------------------------------------------------------------
